@@ -1,0 +1,26 @@
+appId: org.kitpa.streamkitplus
+productName: StreamKit+
+directories:
+  buildResources: resources
+  output: release
+files:
+  - out/**
+  - package.json
+win:
+  icon: resources/icon.png
+  target:
+    - target: nsis
+      arch: [x64]
+nsis:
+  installerIcon: resources/icon.ico
+  uninstallerIcon: resources/icon.ico
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  shortcutName: StreamKit+
+
+# 자동 업데이트: GitHub 릴리스에서 새 버전을 받아옵니다.
+# dist:win 시 설치 파일과 함께 latest.yml(업데이트 매니페스트)이 생성됩니다.
+publish:
+  provider: github
+  owner: izunya
+  repo: streamKitPlus

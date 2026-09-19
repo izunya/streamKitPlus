@@ -107,6 +107,18 @@ function describeError(body: unknown): string | null {
   for (const c of candidates) {
     if (typeof c === 'string' && c) return c
   }
+
+  /*
+   * Google 형태: { error: { code, message, errors: [...] } }
+   *
+   * error 가 문자열이 아니라 객체라서 위 검사에 걸리지 않습니다.
+   * 이걸 놓치면 사유가 통째로 사라지고 "403 Forbidden" 만 남아,
+   * 할당량 초과인지 권한 문제인지 구분할 수 없게 됩니다.
+   */
+  if (typeof o.error === 'object' && o.error) {
+    const inner = (o.error as Record<string, unknown>).message
+    if (typeof inner === 'string' && inner) return inner
+  }
   // 치지직/CIME 형태: { code, message, content }
   if (typeof o.content === 'object' && o.content) {
     const inner = (o.content as Record<string, unknown>).message

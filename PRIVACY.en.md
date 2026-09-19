@@ -36,6 +36,22 @@ These are stored in the `%APPDATA%\streamkit-plus` folder.
 
 Nothing is sent anywhere else. Information is not provided or sold to third parties.
 
+## Handling of Google user data
+
+This section covers the permission and data used for the YouTube integration specifically.
+
+The app requests one scope, `https://www.googleapis.com/auth/youtube`. It is used for three things.
+
+- Reading information about a broadcast that is live or scheduled, so the title, category, and tags currently set can be shown on screen.
+- Changing broadcast information, applying the title, category, and tags the user entered.
+- Reading and sending live chat, so messages appear in the combined chat view and what the user types is delivered.
+
+Broadcast information and chat messages retrieved this way stay in memory while they are displayed and are never written to a file. The only thing stored is the authentication token, kept on the user's PC behind Windows encryption as described above.
+
+Google user data is not handed to any other person or service. It is not sent to a developer server, it is not used for advertising or analytics, and no human reads it.
+
+StreamKit+'s use and transfer of information received from Google APIs to any other app adheres to the Google API Services User Data Policy, including the Limited Use requirements.
+
 ## Chat is not stored
 
 Only chat that arrives after you start the program appears on screen. It is held in memory only, so it disappears when the program closes and is never written to a file. Past chat history is not loaded.

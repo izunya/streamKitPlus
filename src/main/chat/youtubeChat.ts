@@ -54,6 +54,22 @@ interface GoogleTokenResponse {
   expires_in?: number
 }
 
+/**
+ * Google 오류 응답에서 사유 코드를 꺼냅니다.
+ *
+ *   { error: { code, message, errors: [ { reason: "quotaExceeded" } ] } }
+ *
+ * 메시지 문구로 판단하면 표현이 바뀌거나 번역될 때 조용히 깨집니다.
+ * reason 코드는 고정이라 이쪽을 봅니다. 없으면 빈 문자열입니다.
+ */
+function googleReason(e: unknown): string {
+  if (!(e instanceof ApiError)) return ''
+  const body = e.body as
+    | { error?: { errors?: { reason?: string }[]; status?: string } }
+    | undefined
+  return body?.error?.errors?.[0]?.reason ?? body?.error?.status ?? ''
+}
+
 export function createYouTubeChat(opts: ChatClientOptions): ChatClient {
   const creds = getCredentials('youtube')
   if (!getToken('youtube')?.accessToken) {
@@ -174,11 +190,30 @@ export function createYouTubeChat(opts: ChatClientOptions): ChatClient {
       schedule(res.pollingIntervalMillis ?? DEFAULT_INTERVAL_MS)
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
+      const reason = googleReason(e)
       failures += 1
 
-      // 할당량 초과는 기다린다고 풀리지 않으므로 멈춥니다.
-      if (msg.includes('quota') || msg.includes('Quota')) {
+      /*
+       * 다시 시도해도 소용없는 오류는 즉시 멈춥니다.
+       *
+       * 특히 할당량 초과는 재시도가 해롭습니다 — 실패한 호출도 할당량을 먹기 때문에
+       * 두드릴수록 상황이 나빠집니다. 문구 매칭 대신 Google 이 주는 reason 코드로
+       * 판단합니다. 메시지는 번역·표현이 바뀔 수 있지만 코드는 고정입니다.
+       */
+      if (reason === 'quotaExceeded' || reason === 'dailyLimitExceeded') {
         opts.onStatus('error', '유튜브 하루 사용량을 모두 썼습니다. 내일 다시 시도해 주세요.')
+        closed = true
+        return
+      }
+
+      if (reason === 'liveChatEnded') {
+        opts.onStatus('error', '방송이 끝나 채팅이 닫혔습니다.')
+        closed = true
+        return
+      }
+
+      if (reason === 'liveChatDisabled' || reason === 'forbidden') {
+        opts.onStatus('error', `채팅을 읽을 수 없습니다. ${msg}`)
         closed = true
         return
       }

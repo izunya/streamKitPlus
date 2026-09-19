@@ -120,10 +120,10 @@ export async function sendChat(
 }
 
 /**
- * 채팅 전용 로그인.
+ * 채팅 전용 로그인. 평소에는 쓰지 않습니다.
  *
- * Twitch 만 별도 앱이라 따로 로그인합니다.
- * 치지직·CIME 은 방송용과 같은 앱에 채팅 권한이 들어 있어 이 과정이 없습니다.
+ * 어느 플랫폼이든 방송 로그인 한 번으로 채팅까지 됩니다. 이건 트위치에서
+ * 채팅만 다른 계정으로 쓰려고 앱을 하나 더 등록했을 때를 위한 길입니다.
  */
 export async function loginChat(
   platform: PlatformId,

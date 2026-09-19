@@ -7,7 +7,19 @@ import type { AppCredentials } from './vault'
  * ── 왜 필요한가 ──────────────────────────────────────────────
  * OAuth 는 "어떤 앱이 요청하는지"를 식별하는 client_id 없이는 시작할 수 없습니다.
  * 등록되지 않은 앱에는 플랫폼이 동의 화면조차 띄우지 않습니다.
- * 여기를 채워두면 사용자는 아무것도 입력하지 않고 로그인 버튼만 누르면 됩니다.
+ * 여기가 비어 있으면 사용자는 로그인 자체를 못 합니다. 개발자 설정 화면은
+ * 배포본에서 감췄으니, 배포하려면 반드시 값이 들어가 있어야 합니다.
+ *
+ * ── 어디에 적는가 ────────────────────────────────────────────
+ * 프로젝트 루트의 .env 에 적습니다. 이 파일은 저장소에 올라가지 않습니다.
+ * 형식은 .env.example 을 그대로 복사해서 쓰면 됩니다.
+ *
+ *     SKP_YOUTUBE_CLIENT_ID=...
+ *     SKP_CHZZK_CLIENT_SECRET=...
+ *
+ * 빌드할 때 이 값들이 코드 안에 글자 그대로 박힙니다. .env 없이 빌드하면
+ * 값이 빈 채로 나가고, 사용자는 로그인 버튼을 눌러도 아무 일도 일어나지 않습니다.
+ * 빌드 전에 값이 들어갔는지 꼭 확인하세요.
  *
  * ── secret 을 넣어도 되는가 ──────────────────────────────────
  *   YouTube : 넣지 않아도 됩니다. Google 문서가 "installed apps cannot keep secrets"
@@ -16,20 +28,16 @@ import type { AppCredentials } from './vault'
  *             "public clients do not need to maintain a client secret" 입니다.
  *   치지직/CIME : secret 이 반드시 필요합니다. PKCE 도 device flow 도 없습니다.
  *
- *             ⚠️ 여기에 secret 을 넣으면 배포된 앱에서 추출할 수 있습니다.
- *                토큰 자체는 각 사용자 PC 에만 있으므로 다른 사람 계정이 털리지는 않지만,
- *                제3자가 이 앱을 사칭할 수 있고 그 결과 앱 등록이 정지될 수 있습니다.
- *                그럼에도 사용자 편의를 위해 넣는 것은 흔한 선택입니다.
+ *             ⚠️ 배포된 앱에서 secret 을 꺼내볼 수 있습니다. .env 에 적든 아래
+ *                BUILT_IN 에 적든 마찬가지입니다 — 결국 같은 자리에 박힙니다.
+ *                토큰 자체는 각 사용자 PC 에만 있으므로 다른 사람 계정이 털리지는
+ *                않지만, 제3자가 이 앱을 사칭할 수 있고 그 결과 앱 등록이 정지될
+ *                수 있습니다. 그럼에도 사용자 편의를 위해 넣는 것은 흔한 선택입니다.
  *                더 안전한 대안은 토큰 교환만 대행하는 작은 서버를 두는 것입니다.
  *
- * ── 채우는 방법 ──────────────────────────────────────────────
- * 1. 각 플랫폼 개발자 콘솔에서 앱을 등록합니다.
- * 2. 아래 상수에 client_id 를 적거나, 빌드 시 환경 변수로 넘깁니다.
- *      SKP_YOUTUBE_CLIENT_ID, SKP_TWITCH_CLIENT_ID
- * 3. YouTube 는 'youtube' 스코프가 민감 범주라 OAuth 확인(verification)을 받지 않으면
- *    "확인되지 않은 앱" 경고가 뜨고 테스트 사용자 100명 제한이 걸립니다.
- *
- * 비워두면 사용자가 설정에서 직접 입력해야 합니다 (지금 상태).
+ * ── 그 외 ────────────────────────────────────────────────────
+ * YouTube 는 'youtube' 스코프가 민감 범주라 OAuth 확인(verification)을 받지 않으면
+ * "확인되지 않은 앱" 경고가 뜨고 테스트 사용자 100명 제한이 걸립니다.
  */
 
 interface DefaultEntry {
@@ -37,42 +45,58 @@ interface DefaultEntry {
   clientSecret?: string
 }
 
+/**
+ * 빌드할 때 .env 에서 끼워 넣는 값.
+ *
+ * 플랫폼마다 한 줄씩 직접 늘어놓은 데에는 이유가 있습니다. process.env[변수이름]
+ * 처럼 키를 변수로 넘기면 빌드 도구가 값을 채워 넣지 못합니다. 소스에 적힌 글자를
+ * 그대로 찾아 바꾸는 방식이라, 글자가 완성된 형태로 있어야 하기 때문입니다.
+ *
+ * 값을 안 넣은 항목은 undefined 로 남고, 아래에서 빈 값으로 취급합니다.
+ */
+const FROM_ENV: Partial<Record<PlatformId, DefaultEntry>> = {
+  youtube: {
+    clientId: process.env.SKP_YOUTUBE_CLIENT_ID ?? '',
+    clientSecret: process.env.SKP_YOUTUBE_CLIENT_SECRET ?? ''
+  },
+  twitch: {
+    clientId: process.env.SKP_TWITCH_CLIENT_ID ?? '',
+    clientSecret: process.env.SKP_TWITCH_CLIENT_SECRET ?? ''
+  },
+  chzzk: {
+    clientId: process.env.SKP_CHZZK_CLIENT_ID ?? '',
+    clientSecret: process.env.SKP_CHZZK_CLIENT_SECRET ?? ''
+  },
+  cime: {
+    clientId: process.env.SKP_CIME_CLIENT_ID ?? '',
+    clientSecret: process.env.SKP_CIME_CLIENT_SECRET ?? ''
+  }
+}
+
+/**
+ * 소스에 직접 적어 두는 값. .env 가 비어 있을 때만 씁니다.
+ *
+ * 저장소에 그대로 올라가므로 평소에는 비워 두고 .env 를 쓰세요.
+ * 여기는 포크해서 각자 쓰는 사람들을 위한 자리입니다.
+ */
 const BUILT_IN: Partial<Record<PlatformId, DefaultEntry>> = {
-  // ── 여기를 채우면 사용자는 로그인 버튼만 누르면 됩니다 ──
-
-  // Secret 불필요 (PKCE)
   youtube: { clientId: '' },
-
-  // Secret 불필요 (Device Code Flow)
   twitch: { clientId: '' },
-
-  // Secret 필요 — 위 경고를 읽고 판단해서 채우세요
   chzzk: { clientId: '', clientSecret: '' },
   cime: { clientId: '', clientSecret: '' }
 
   // SOOP 은 어댑터가 아직 없습니다.
 }
 
-/** 환경 변수로도 덮어쓸 수 있게 해서, 키를 소스에 커밋하지 않아도 되게 합니다. */
-const ENV_KEYS: Partial<Record<PlatformId, { id: string; secret: string }>> = {
-  youtube: { id: 'SKP_YOUTUBE_CLIENT_ID', secret: 'SKP_YOUTUBE_CLIENT_SECRET' },
-  twitch: { id: 'SKP_TWITCH_CLIENT_ID', secret: 'SKP_TWITCH_CLIENT_SECRET' },
-  chzzk: { id: 'SKP_CHZZK_CLIENT_ID', secret: 'SKP_CHZZK_CLIENT_SECRET' },
-  cime: { id: 'SKP_CIME_CLIENT_ID', secret: 'SKP_CIME_CLIENT_SECRET' }
-}
-
 export function getDefaultCredentials(id: PlatformId): AppCredentials | undefined {
-  const env = ENV_KEYS[id]
-  const envId = env ? process.env[env.id]?.trim() : undefined
-  const envSecret = env ? process.env[env.secret]?.trim() : undefined
+  // .env 가 먼저입니다. 소스에 적힌 값은 .env 가 비었을 때만 씁니다.
+  for (const entry of [FROM_ENV[id], BUILT_IN[id]]) {
+    const clientId = entry?.clientId?.trim()
+    if (!clientId) continue
 
-  if (envId) return { clientId: envId, clientSecret: envSecret || undefined }
-
-  const built = BUILT_IN[id]
-  if (built?.clientId) {
-    return { clientId: built.clientId, clientSecret: built.clientSecret || undefined }
+    const clientSecret = entry?.clientSecret?.trim()
+    return { clientId, clientSecret: clientSecret || undefined }
   }
-
   return undefined
 }
 

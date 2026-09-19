@@ -46,12 +46,19 @@ const SPECS: Partial<Record<PlatformId, RedirectSpec>> = {
  *   broadcast  방송 정보(제목·카테고리·태그) 수정용
  *   chat       채팅 읽기·쓰기용
  *
- * Twitch 는 스코프가 범주로 나뉘어 있어 채팅용 앱을 따로 등록해야 합니다.
- * 앱이 다르면 Client ID 도 리다이렉트 URI 도 달라지므로 슬롯을 나눕니다.
+ * 슬롯을 나눈 건 앱을 두 개 써야 해서가 아닙니다. 트위치 스코프는 앱이 아니라
+ * 로그인할 때 요청하는 값이라, 앱 하나로 방송 권한과 채팅 권한을 같이 받습니다.
+ *
+ * 나눈 이유는 IRC 입니다. 채널에 들어갈 때 쓰는 이름이 표시 이름이 아니라
+ * 소문자 login 이라, 표시 이름이 들어 있는 방송 슬롯과 같은 자리에 둘 수 없습니다.
+ * 채팅만 다른 계정으로 쓰려고 앱을 하나 더 등록한 경우에도 이 슬롯에 담깁니다.
  */
 export type CredentialSlot = 'broadcast' | 'chat'
 
-/** 채팅 전용 앱을 따로 쓰는 플랫폼만 여기에 둡니다. */
+/**
+ * 채팅용 앱을 따로 등록했을 때만 쓰는 주소입니다. 등록은 선택입니다 —
+ * 보통은 방송 로그인 한 번으로 채팅까지 끝납니다.
+ */
 const CHAT_SPECS: Partial<Record<PlatformId, RedirectSpec>> = {
   twitch: { host: 'localhost', port: 12481, path: '/callback' }
 }
@@ -63,7 +70,7 @@ export function getRedirectSpec(
   return slot === 'chat' ? CHAT_SPECS[id] : SPECS[id]
 }
 
-/** 이 플랫폼이 채팅용 앱을 따로 요구하는지 */
+/** 이 플랫폼이 채팅용 앱을 따로 등록하는 길을 열어두는지 (필수가 아닙니다) */
 export function needsSeparateChatApp(id: PlatformId): boolean {
   return CHAT_SPECS[id] !== undefined
 }

@@ -257,16 +257,19 @@ export function ConnectDialog({
                   앱을 만든 사람이 설정해야 하는 부분이라, 직접 해결하실 수는 없습니다.
                   제작자에게 알려주세요.
                 </p>
-                <button
-                  type="button"
-                  className="mt-2 w-full rounded-lg border border-warn/40 py-2 text-[11.5px] text-warn/80 transition-colors hover:bg-warn/15"
-                  onClick={() => {
-                    onClose()
-                    onOpenSettings()
-                  }}
-                >
-                  개발자 설정 열기
-                </button>
+                {/* 개발자 설정은 배포본에 없으므로, 그리로 가는 버튼도 개발 중에만 띄웁니다. */}
+                {import.meta.env.DEV && (
+                  <button
+                    type="button"
+                    className="mt-2 w-full rounded-lg border border-warn/40 py-2 text-[11.5px] text-warn/80 transition-colors hover:bg-warn/15"
+                    onClick={() => {
+                      onClose()
+                      onOpenSettings()
+                    }}
+                  >
+                    개발자 설정 열기
+                  </button>
+                )}
               </div>
             )}
 

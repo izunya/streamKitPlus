@@ -126,7 +126,7 @@ export function getCredentials(
 ): AppCredentials | undefined {
   const own = read().credentials[slotKey(id, slot)]
   if (own?.clientId) return own
-  // 내장 기본값은 방송용에만 둡니다 (채팅용 앱은 배포자가 따로 등록).
+  // 내장 기본값은 방송용에만 둡니다 (채팅용 앱은 등록한 사람만 씁니다).
   return slot === 'broadcast' ? getDefaultCredentials(id) : undefined
 }
 

@@ -12,9 +12,11 @@ import type { DeviceCodeInfo } from '../platforms/base'
  *   PASS oauth:<token> / NICK <login> / JOIN #<channel>
  *   보내기: PRIVMSG #channel :내용
  *
- * 필요한 스코프는 chat:read (읽기), chat:edit (쓰기) 입니다.
- * Twitch 는 권한이 범주로 나뉘어 있어 방송 정보용 앱과 별개의 앱을 씁니다.
- * 그래서 자격 증명 슬롯이 'chat' 으로 분리되어 있습니다.
+ * 필요한 스코프는 chat:read (읽기), chat:edit (쓰기) 입니다. 방송 로그인에서
+ * 이 둘까지 같이 받아 두므로 채팅용 앱을 따로 등록하지 않아도 됩니다.
+ *
+ * 자격 증명 슬롯이 'chat' 으로 나뉜 건 IRC 가 소문자 login 을 요구하기 때문입니다.
+ * 방송 슬롯에는 표시 이름이 들어 있어서 그 자리를 같이 쓸 수 없습니다.
  */
 
 const IRC_URL = 'wss://irc-ws.chat.twitch.tv:443'
@@ -206,8 +208,10 @@ export function createTwitchChat(opts: ChatClientOptions): ChatClient {
 /* ------------------------------------------------------------------ */
 
 /**
- * Twitch 는 권한이 범주로 나뉘어 있어 채팅용 앱을 따로 등록해야 합니다.
- * 그래서 방송 정보용과 별개로 한 번 더 로그인합니다.
+ * 채팅용 앱을 따로 등록해 둔 경우에만 쓰는 로그인입니다.
+ *
+ * 보통은 쓸 일이 없습니다 — 방송 로그인이 채팅 권한까지 받아오고 그 토큰을
+ * 채팅 슬롯에도 넣어 둡니다. 채팅만 다른 계정으로 쓰고 싶을 때의 선택지입니다.
  *
  * IRC 에 붙으려면 채널명이 필요한데, 이때 쓰는 이름은 표시 이름이 아니라
  * 소문자 login 입니다. 그래서 여기서 login 을 저장해 둡니다.

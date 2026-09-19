@@ -220,117 +220,126 @@ export function SettingsDialog({ open, onClose }: Props): React.JSX.Element | nu
 
           <UpdateSection />
 
-          {/* 개발자 설정 — 배포하는 사람만 씁니다 */}
-          <section className="border-t border-ink-600 pt-3.5">
-            <button
-              type="button"
-              className="flex w-full items-center justify-between text-left"
-              onClick={() => setShowDev((v) => !v)}
-            >
-              <span className="text-[12.5px] font-semibold text-fg-faint">개발자 설정</span>
-              <span className="text-[11px] text-fg-faint">{showDev ? '접기' : '열기'}</span>
-            </button>
+          {/*
+            개발자 설정 — 앱을 배포하는 사람만 쓰는 영역입니다.
 
-            {showDev && (
-              <div className="fade-up mt-3 space-y-3">
-                <p className="text-[11px] leading-relaxed text-fg-faint">
-                  앱을 배포하는 사람만 쓰는 영역입니다. 여기서 입력한 값은 이 PC 에만
-                  저장되므로, 배포본에 담으려면{' '}
-                  <code className="text-fg-muted">src/main/defaultCredentials.ts</code> 를 채워야
-                  합니다.
-                </p>
+            배포본에서는 아예 그리지 않습니다. 일반 사용자는 쓸 일이 없는데
+            플랫폼 키 입력칸만 덩그러니 보이면 혼란스럽기 때문입니다.
+            import.meta.env.DEV 는 빌드할 때 상수로 바뀌므로, 패키징하면
+            이 블록 전체가 번들에서 빠집니다.
+          */}
+          {import.meta.env.DEV && (
+            <section className="border-t border-ink-600 pt-3.5">
+              <button
+                type="button"
+                className="flex w-full items-center justify-between text-left"
+                onClick={() => setShowDev((v) => !v)}
+              >
+                <span className="text-[12.5px] font-semibold text-fg-faint">개발자 설정</span>
+                <span className="text-[11px] text-fg-faint">{showDev ? '접기' : '열기'}</span>
+              </button>
 
-                {unreadable && (
-                  <p className="rounded-lg bg-warn/10 px-3 py-2 text-[11px] leading-relaxed text-warn">
-                    저장해 둔 로그인 정보를 읽지 못했습니다. 아래에서 한 번만 다시 입력해 주세요.
+              {showDev && (
+                <div className="fade-up mt-3 space-y-3">
+                  <p className="text-[11px] leading-relaxed text-fg-faint">
+                    앱을 배포하는 사람만 쓰는 영역입니다. 여기서 입력한 값은 이 PC 에만
+                    저장되므로, 배포본에 담으려면{' '}
+                    <code className="text-fg-muted">src/main/defaultCredentials.ts</code> 를 채워야
+                    합니다.
                   </p>
-                )}
 
-                {!encryption && (
-                  <p className="rounded-lg bg-warn/10 px-3 py-2 text-[11px] leading-relaxed text-warn">
-                    이 시스템에서는 안전한 자격 증명 저장을 사용할 수 없어 키를 저장할 수 없습니다.
-                  </p>
-                )}
+                  {unreadable && (
+                    <p className="rounded-lg bg-warn/10 px-3 py-2 text-[11px] leading-relaxed text-warn">
+                      저장해 둔 로그인 정보를 읽지 못했습니다. 아래에서 한 번만 다시 입력해 주세요.
+                    </p>
+                  )}
 
-                <div className="space-y-2">
-                  {PLATFORM_ORDER.map((id) => (
-                    <CredentialRow
-                      key={id}
-                      id={id}
-                      status={statuses[id]}
-                      disabled={!liveOk || !encryption}
-                      onSaved={reload}
-                    />
-                  ))}
-                </div>
-
-                {/* 채팅용 앱을 따로 등록해야 하는 플랫폼 */}
-                <div>
-                  <h4 className="mb-1 text-[12px] font-semibold">채팅용 앱</h4>
-                  <p className="mb-2 text-[11px] leading-relaxed text-fg-faint">
-                    <span className="text-ok">보통은 비워두면 됩니다.</span> Twitch 채팅은 방송
-                    로그인에서 받은 토큰을 그대로 쓰고, IRC 접속에는 Client ID 가 필요 없습니다.
-                    <br />
-                    채팅만 다른 앱으로 돌리고 싶을 때만 여기에 넣으세요.
-                  </p>
+                  {!encryption && (
+                    <p className="rounded-lg bg-warn/10 px-3 py-2 text-[11px] leading-relaxed text-warn">
+                      이 시스템에서는 안전한 자격 증명 저장을 사용할 수 없어 키를 저장할 수 없습니다.
+                    </p>
+                  )}
 
                   <div className="space-y-2">
-                    {PLATFORM_ORDER.filter(needsSeparateChatApp).map((id) => (
+                    {PLATFORM_ORDER.map((id) => (
                       <CredentialRow
-                        key={`${id}-chat`}
+                        key={id}
                         id={id}
-                        slot="chat"
-                        status={chatStatuses[id]}
+                        status={statuses[id]}
                         disabled={!liveOk || !encryption}
                         onSaved={reload}
                       />
                     ))}
                   </div>
-                </div>
 
-                <div>
-                  <h4 className="mb-1.5 text-[12px] font-semibold">
-                    콘솔에 등록할 리다이렉트 URI
-                  </h4>
-                  <p className="mb-2 text-[11px] leading-relaxed text-fg-faint">
-                    아래 문자열을 그대로 등록해야 합니다. 치지직·CIME 은 등록된 주소와 정확히
-                    일치하지 않으면 인증을 거부합니다.
-                  </p>
-                  <div className="space-y-1">
-                    {[
-                      ...PLATFORM_ORDER.map((id) => [id, 'broadcast'] as const),
-                      ...PLATFORM_ORDER.filter(needsSeparateChatApp).map(
-                        (id) => [id, 'chat'] as const
-                      )
-                    ].map(([id, slot]) => {
-                      const uri = getRedirectUri(id, slot)
-                      return (
-                        <div key={`${id}-${slot}`} className="flex items-center gap-2 text-[11px]">
-                          <span className="w-20 shrink-0 text-fg-muted">
-                            {PLATFORMS[id].name}
-                            {slot === 'chat' && (
-                              <span className="ml-1 text-[10px] text-fg-faint">채팅</span>
-                            )}
-                          </span>
-                          {uri ? (
-                            <code className="min-w-0 flex-1 truncate rounded bg-ink-900 px-2 py-1 text-fg">
-                              {uri}
-                            </code>
-                          ) : (
-                            <span className="text-fg-faint">
-                              {id === 'twitch'
-                                ? 'Device Code Flow — 리다이렉트 URI 불필요'
-                                : '미구현'}
+                  {/* 채팅용 앱을 따로 등록해야 하는 플랫폼 */}
+                  <div>
+                    <h4 className="mb-1 text-[12px] font-semibold">채팅용 앱</h4>
+                    <p className="mb-2 text-[11px] leading-relaxed text-fg-faint">
+                      <span className="text-ok">보통은 비워두면 됩니다.</span> Twitch 채팅은 방송
+                      로그인에서 받은 토큰을 그대로 쓰고, IRC 접속에는 Client ID 가 필요 없습니다.
+                      <br />
+                      채팅만 다른 앱으로 돌리고 싶을 때만 여기에 넣으세요.
+                    </p>
+
+                    <div className="space-y-2">
+                      {PLATFORM_ORDER.filter(needsSeparateChatApp).map((id) => (
+                        <CredentialRow
+                          key={`${id}-chat`}
+                          id={id}
+                          slot="chat"
+                          status={chatStatuses[id]}
+                          disabled={!liveOk || !encryption}
+                          onSaved={reload}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="mb-1.5 text-[12px] font-semibold">
+                      콘솔에 등록할 리다이렉트 URI
+                    </h4>
+                    <p className="mb-2 text-[11px] leading-relaxed text-fg-faint">
+                      아래 문자열을 그대로 등록해야 합니다. 치지직·CIME 은 등록된 주소와 정확히
+                      일치하지 않으면 인증을 거부합니다.
+                    </p>
+                    <div className="space-y-1">
+                      {[
+                        ...PLATFORM_ORDER.map((id) => [id, 'broadcast'] as const),
+                        ...PLATFORM_ORDER.filter(needsSeparateChatApp).map(
+                          (id) => [id, 'chat'] as const
+                        )
+                      ].map(([id, slot]) => {
+                        const uri = getRedirectUri(id, slot)
+                        return (
+                          <div key={`${id}-${slot}`} className="flex items-center gap-2 text-[11px]">
+                            <span className="w-20 shrink-0 text-fg-muted">
+                              {PLATFORMS[id].name}
+                              {slot === 'chat' && (
+                                <span className="ml-1 text-[10px] text-fg-faint">채팅</span>
+                              )}
                             </span>
-                          )}
-                        </div>
-                      )
-                    })}
+                            {uri ? (
+                              <code className="min-w-0 flex-1 truncate rounded bg-ink-900 px-2 py-1 text-fg">
+                                {uri}
+                              </code>
+                            ) : (
+                              <span className="text-fg-faint">
+                                {id === 'twitch'
+                                  ? 'Device Code Flow — 리다이렉트 URI 불필요'
+                                  : '미구현'}
+                              </span>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
-          </section>
+              )}
+            </section>
+          )}
         </div>
       </div>
     </div>

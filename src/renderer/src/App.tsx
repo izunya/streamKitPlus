@@ -4,9 +4,7 @@ import { useAppStore, useActiveTargets, useChangeSummary } from '@/store/useAppS
 import { subscribeChat, useChatStore } from '@/store/useChatStore'
 import { useObsStore } from '@/store/useObsStore'
 import { PlatformToggleBar } from '@/components/PlatformToggleBar'
-import { TitleField } from '@/components/TitleField'
-import { CategoryField } from '@/components/CategoryField'
-import { TagField } from '@/components/TagField'
+import { Workbench } from '@/components/Workbench'
 import { ResultPanel } from '@/components/ResultPanel'
 import { SidePanel } from '@/components/SidePanel'
 import { ConnectDialog } from '@/components/ConnectDialog'
@@ -69,7 +67,7 @@ export default function App(): React.JSX.Element {
   return (
     <div className="flex h-full flex-col">
       {/* 헤더 */}
-      <header className="flex shrink-0 items-center justify-between border-b border-ink-600 px-5 py-3">
+      <header className="app-edge flex shrink-0 items-center justify-between px-5 py-3">
         <div className="flex items-center gap-2.5">
           {/* 가로로 긴 로고라 정사각형에 넣으면 세로 여백 때문에 작아 보입니다.
               높이만 맞추고 가로는 비율대로 둡니다. */}
@@ -106,9 +104,7 @@ export default function App(): React.JSX.Element {
         {/* 좌: 입력 영역 */}
         <main className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-y-auto pr-1">
           <PlatformToggleBar onRequestConnect={setConnectTarget} />
-          <TitleField />
-          <CategoryField />
-          <TagField />
+          <Workbench />
           <ResultPanel />
         </main>
 
@@ -151,7 +147,7 @@ export default function App(): React.JSX.Element {
         <button
           type="button"
           disabled={!canApply}
-          className="flex items-center justify-center gap-2 rounded-xl bg-accent px-7 py-2.5 text-[14px] font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-30"
+          className="cta flex items-center justify-center gap-2 rounded-xl px-7 py-2.5 text-[14px] font-semibold disabled:cursor-not-allowed"
           onClick={() => void apply()}
         >
           {applying && (

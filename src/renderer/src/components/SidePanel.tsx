@@ -10,7 +10,7 @@ export function SidePanel(): React.JSX.Element {
   const [tab, setTab] = useState<'presets' | 'chat' | 'history'>('presets')
 
   return (
-    <aside className="flex min-h-0 w-[340px] shrink-0 flex-col rounded-2xl border border-ink-600 bg-ink-800">
+    <aside className="panel flex min-h-0 w-[340px] shrink-0 flex-col rounded-2xl">
       <div className="flex shrink-0 gap-1 border-b border-ink-600 p-2">
         {(
           [

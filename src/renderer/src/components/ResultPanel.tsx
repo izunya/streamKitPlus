@@ -30,7 +30,7 @@ export function ResultPanel(): React.JSX.Element | null {
   const failed = results.length - ok
 
   return (
-    <section className="fade-up rounded-2xl border border-ink-600 bg-ink-800 p-4">
+    <section className="panel fade-up shrink-0 rounded-2xl p-4">
       <header className="mb-2.5 flex items-center justify-between">
         <h2 className="text-[13px] font-semibold">
           적용 결과

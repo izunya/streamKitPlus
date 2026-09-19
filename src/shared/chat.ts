@@ -15,11 +15,26 @@ export interface ChatMessage {
   /** 중복 렌더링 방지용. 플랫폼이 주는 ID 가 없으면 직접 만듭니다. */
   id: string
   platform: PlatformId
+  /**
+   * 내가 여러 곳에 동시에 보낸 경우 보낸 곳 전부.
+   *
+   * 같은 말을 두 곳에 보냈다고 줄이 두 개로 늘어나면 읽기 나쁩니다.
+   * 한 줄로 두고 왼쪽 아이콘만 여러 개 보여주려고 둡니다.
+   * 없으면 platform 하나짜리로 봅니다.
+   */
+  platforms?: PlatformId[]
   /** 화면에 보일 이름 */
   nickname: string
   text: string
   /** 받은 시각 (epoch ms) */
   at: number
+  /**
+   * 내가 보낸 메시지.
+   *
+   * 플랫폼마다 자기 메시지를 되돌려주는지가 달라서(치지직은 돌려주고 트위치 IRC 는
+   * 돌려주지 않습니다) 보낸 즉시 화면에 직접 넣습니다. 그래야 어디로 갔든 똑같이 보입니다.
+   */
+  mine?: boolean
 }
 
 export type ChatStatus =

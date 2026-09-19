@@ -128,13 +128,13 @@ function resultPage(ok: boolean, message: string): string {
   return `<!doctype html><html lang="ko"><head><meta charset="utf-8">
 <title>StreamKit+ 연동</title>
 <style>
-  body{font-family:system-ui,'Malgun Gothic',sans-serif;background:#0f1115;color:#e7e9ee;
+  body{font-family:system-ui,'Malgun Gothic',sans-serif;background:#101219;color:#f1f3f8;
        display:flex;align-items:center;justify-content:center;height:100vh;margin:0}
-  .card{text-align:center;padding:40px 56px;border-radius:16px;background:#171a21;
-        border:1px solid #262b36}
+  .card{text-align:center;padding:40px 56px;border-radius:16px;background:#1b1f2b;
+        border:1px solid #2e3446}
   .mark{font-size:44px;margin-bottom:12px}
   h1{font-size:19px;margin:0 0 8px}
-  p{font-size:14px;color:#9aa3b2;margin:0}
+  p{font-size:14px;color:#aeb6c6;margin:0}
 </style></head><body><div class="card">
 <div class="mark">${ok ? '&#10003;' : '&#10005;'}</div>
 <h1>${ok ? '연동이 완료되었습니다' : '연동에 실패했습니다'}</h1>

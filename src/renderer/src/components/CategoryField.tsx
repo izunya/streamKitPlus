@@ -90,14 +90,13 @@ export function CategoryField(): React.JSX.Element {
   const unlinked = counted.filter(isUnlinked)
 
   return (
-    <section className="rounded-2xl border border-ink-600 bg-ink-800 p-4">
+    <div className="wb-row">
       <header className="mb-2.5 flex items-center justify-between">
-        <h2 className="text-[13px] font-semibold">카테고리</h2>
+        <h2 className="section-bar text-[13px] font-semibold">카테고리</h2>
         <div className="flex items-center gap-3 text-[11px] text-fg-faint">
           {resolving && (
             <span className="spin block h-3 w-3 rounded-full border-[1.5px] border-ink-500 border-t-accent-soft" />
           )}
-          <span>한 번 골라두면 다음부터 알아서 맞춰집니다</span>
           <button
             type="button"
             disabled={loadingCurrent}
@@ -422,7 +421,7 @@ export function CategoryField(): React.JSX.Element {
           )}
         </p>
       )}
-    </section>
+    </div>
   )
 }
 

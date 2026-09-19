@@ -1,18 +1,23 @@
 @import 'tailwindcss';
 
-/* StreamKit+ 디자인 토큰 — 방송 도구는 어두운 배경이 기본입니다. */
+/* StreamKit+ 디자인 토큰
+ *
+ * 방송 중에 오래 띄워두는 창이라 조용한 어두운 화면을 기본으로 합니다.
+ * 색으로 튀게 하지 않고, 배경·카드·경계선의 밝기 차이로 구역을 나눕니다.
+ * 강조색은 지금 누를 것(적용 버튼)과 고른 것에만 씁니다.
+ */
 @theme {
-  --color-ink-950: #0b0d11;
-  --color-ink-900: #0f1115;
-  --color-ink-850: #14171d;
-  --color-ink-800: #171a21;
-  --color-ink-700: #1e222b;
-  --color-ink-600: #262b36;
-  --color-ink-500: #343a47;
+  --color-ink-950: #090a0e;
+  --color-ink-900: #101219; /* 앱 배경 */
+  --color-ink-850: #161923;
+  --color-ink-800: #1b1f2b; /* 카드 · 입력칸 */
+  --color-ink-700: #242938; /* 떠오른 면 · 호버 채움 */
+  --color-ink-600: #2e3446; /* 경계선 */
+  --color-ink-500: #3d4457; /* 호버 경계선 */
 
-  --color-fg: #e7e9ee;
-  --color-fg-muted: #9aa3b2;
-  --color-fg-faint: #6b7484;
+  --color-fg: #f1f3f8;
+  --color-fg-muted: #aeb6c6;
+  --color-fg-faint: #7d8798;
 
   --color-accent: #7c5cff;
   --color-accent-soft: #a08cff;
@@ -47,6 +52,14 @@ textarea {
   user-select: text;
 }
 
+/* 지금 어디에 쓰고 있는지 보이게 합니다. */
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--color-accent) 55%, transparent);
+}
+
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -57,10 +70,72 @@ textarea {
 ::-webkit-scrollbar-thumb {
   background: var(--color-ink-600);
   border-radius: 6px;
-  border: 2px solid var(--color-ink-900);
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-ink-500);
+  background-clip: padding-box;
+}
+
+/* ──────────────────────────────────────────────────────────
+ * 표면
+ * Tailwind 유틸리티보다 뒤에 선언해 카드 배경·테두리를 덮어씁니다.
+ * ────────────────────────────────────────────────────────── */
+
+/* 큰 구역 카드 */
+.panel {
+  background: var(--color-ink-800);
+  border: 1px solid var(--color-ink-600);
+}
+
+/*
+ * 작업대 한 줄.
+ * 제목·카테고리·태그가 각자 카드를 갖는 대신 한 판 위에 줄로 쌓입니다.
+ * 줄 사이는 실선 하나로만 나눠 덩어리가 끊겨 보이지 않게 합니다.
+ */
+.wb-row {
+  padding: 14px 16px;
+}
+.wb-row + .wb-row {
+  border-top: 1px solid color-mix(in srgb, var(--color-ink-600) 75%, transparent);
+}
+
+/* 구역 제목 앞 막대 — 줄이 어디서 시작하는지 잡아줍니다. */
+.section-bar::before {
+  content: '';
+  display: inline-block;
+  width: 3px;
+  height: 0.95em;
+  margin-right: 8px;
+  vertical-align: -0.12em;
+  border-radius: 2px;
+  background: var(--color-accent);
+}
+
+/* 헤더 아래 경계 */
+.app-edge {
+  border-bottom: 1px solid var(--color-ink-600);
+}
+
+/* 강조 버튼 — 화면에서 유일하게 꽉 찬 색입니다. */
+.cta {
+  background: var(--color-accent);
+  color: #fff;
+  border: none;
+  transition:
+    filter 160ms ease,
+    transform 120ms ease;
+}
+.cta:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+.cta:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.cta:disabled {
+  background: var(--color-ink-700);
+  color: var(--color-fg-faint);
 }
 
 /* 플랫폼 아이콘 활성/비활성 전환 */
@@ -74,6 +149,10 @@ textarea {
 .platform-chip:active {
   transform: scale(0.94);
 }
+.platform-chip[data-state='on'] {
+  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-ink-600));
+}
+
 /*
  * OFF 와 미연동은 같은 회색으로 보여줍니다.
  * "이번엔 제외" 와 "연결 안 됨" 은 둘 다 적용되지 않는 상태이므로
@@ -85,7 +164,7 @@ textarea {
 .platform-chip[data-state='off'],
 .platform-chip[data-state='unlinked'] {
   filter: grayscale(1);
-  opacity: 0.35;
+  opacity: 0.32;
 }
 
 @keyframes skp-spin {
@@ -109,4 +188,29 @@ textarea {
 }
 .fade-up {
   animation: skp-fade-up 180ms ease both;
+}
+
+/* 키보드로 이동할 때는 초점이 어디 있는지 분명히 보여야 합니다. */
+:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-accent) 70%, transparent);
+  outline-offset: 2px;
+}
+
+/*
+ * 움직임을 줄이도록 설정한 사용자에게는 애니메이션을 걷어냅니다.
+ * 회전 표시(spin)는 "진행 중" 을 알리는 유일한 신호라 아주 느리게라도 남깁니다.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .spin {
+    animation-duration: 2s !important;
+    animation-iteration-count: infinite !important;
+  }
 }

@@ -55,9 +55,17 @@ function wireOnce(): void {
   if (wired) return
   wired = true
 
-  // 우리가 직접 시점을 정합니다. 켜자마자 강제로 받지 않습니다.
+  /*
+   * 사용자가 아무것도 누르지 않아도 되도록 맞춰둡니다.
+   *
+   *   autoDownload          새 버전을 찾으면 바로 받습니다.
+   *   autoInstallOnAppQuit  앱을 끌 때 조용히(silent) 설치합니다.
+   *                         NSIS 설치 마법사가 뜨지 않고 그대로 갈아끼워집니다.
+   *
+   * 다 받았다고 즉시 재시작하지는 않습니다 — 방송 중에 창이 꺼지면 안 되니
+   * 교체는 앱을 끄는 시점까지 미룹니다.
+   */
   autoUpdater.autoDownload = true
-  // 앱을 끌 때 받아둔 업데이트를 조용히 적용합니다.
   autoUpdater.autoInstallOnAppQuit = true
 
   autoUpdater.on('checking-for-update', () => emit({ status: 'checking', error: undefined }))
@@ -107,9 +115,29 @@ export async function checkForUpdates(): Promise<void> {
   }
 }
 
+/**
+ * 주기적으로 새 버전을 확인합니다.
+ *
+ * 방송 도구는 하루 종일 켜두는 일이 흔해서, 켤 때 한 번만 보면
+ * 그 사이에 나온 버전을 영영 못 받습니다. 6시간마다 조용히 확인합니다.
+ * 이미 받아둔 게 있으면 electron-updater 가 알아서 건너뜁니다.
+ */
+const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000
+let timer: NodeJS.Timeout | null = null
+
+export function startUpdateSchedule(): void {
+  if (timer || !app.isPackaged) return
+  timer = setInterval(() => void checkForUpdates(), CHECK_INTERVAL_MS)
+}
+
+export function stopUpdateSchedule(): void {
+  if (timer) clearInterval(timer)
+  timer = null
+}
+
 /** 받아둔 업데이트를 지금 적용하고 다시 시작합니다. */
 export function quitAndInstall(): void {
   if (state.status !== 'downloaded') return
-  // 남은 창을 닫고 설치 후 재실행합니다.
-  autoUpdater.quitAndInstall()
+  // 설치 마법사 없이(silent) 설치하고 다시 띄웁니다.
+  autoUpdater.quitAndInstall(true, true)
 }

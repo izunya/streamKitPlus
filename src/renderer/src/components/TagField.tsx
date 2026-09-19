@@ -59,9 +59,9 @@ export function TagField(): React.JSX.Element {
   const extraCount = Object.values(draft.extraTags).reduce((n, t) => n + (t?.length ?? 0), 0)
 
   return (
-    <section className="rounded-2xl border border-ink-600 bg-ink-800 p-4">
+    <div className="wb-row">
       <header className="mb-2.5 flex items-center justify-between">
-        <h2 className="text-[13px] font-semibold">태그</h2>
+        <h2 className="section-bar text-[13px] font-semibold">태그</h2>
         {supported.length > 0 && (
           <button
             type="button"
@@ -165,9 +165,6 @@ export function TagField(): React.JSX.Element {
       {showPerPlatform && (
         <div className="fade-up mt-3 space-y-2.5 rounded-xl border border-ink-600 bg-ink-900/60 p-3">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-[11px] text-fg-faint">
-              지금 걸려 있는 태그를 불러왔습니다. 위 태그 뒤에 붙습니다.
-            </p>
             <button
               type="button"
               disabled={loadingCurrent}
@@ -276,7 +273,7 @@ export function TagField(): React.JSX.Element {
           })}
         </div>
       )}
-    </section>
+    </div>
   )
 }
 

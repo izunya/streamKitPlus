@@ -34,7 +34,7 @@ export function PlatformToggleBar({ onRequestConnect }: Props): React.JSX.Elemen
   const activeCount = PLATFORM_ORDER.filter((id) => enabled[id] && accounts[id]).length
 
   return (
-    <div className="flex flex-col gap-2.5">
+    <div className="flex shrink-0 flex-col gap-2.5">
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium tracking-wide text-fg-faint">송출 플랫폼</span>
         <span className="text-xs text-fg-faint">

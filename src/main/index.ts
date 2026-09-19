@@ -5,7 +5,7 @@ import { existsSync } from 'node:fs'
 import { registerIpc } from './ipc'
 import { disconnectAllChat, setChatTarget } from './chat'
 import { disconnectObs, setObsTarget } from './obs'
-import { checkForUpdates, setUpdateTarget } from './updater'
+import { checkForUpdates, setUpdateTarget, startUpdateSchedule, stopUpdateSchedule } from './updater'
 
 const isDev = !app.isPackaged
 
@@ -109,7 +109,7 @@ function createWindow(): void {
     minWidth: 960,
     minHeight: 640,
     show: false,
-    backgroundColor: '#0f1115',
+    backgroundColor: '#101219',
     autoHideMenuBar: true,
     ...(existsSync(iconPath) ? { icon: iconPath } : {}),
     titleBarStyle: 'default',
@@ -126,6 +126,8 @@ function createWindow(): void {
     // 창이 뜨면 조용히 새 버전을 확인합니다 (개발 모드에서는 넘어갑니다).
     if (mainWindow) setUpdateTarget(mainWindow.webContents)
     void checkForUpdates()
+    // 오래 켜두는 앱이라 주기적으로도 확인합니다.
+    startUpdateSchedule()
   })
 
   // 앱 안에서 외부 링크가 열리지 않게 하고 기본 브라우저로 넘깁니다.
@@ -163,5 +165,6 @@ app.on('window-all-closed', () => {
   disconnectAllChat()
   setObsTarget(null)
   disconnectObs()
+  stopUpdateSchedule()
   if (process.platform !== 'darwin') app.quit()
 })

@@ -17,9 +17,9 @@ export function TitleField(): React.JSX.Element {
   const titleHint = useAppStore((s) => s.titleHint)
 
   const [showVars, setShowVars] = useState(false)
-  // 플랫폼별 제목은 기본으로 펼쳐 둡니다 — 어떤 제목이 어디로 나가는지
-  // 바로 보이는 편이 낫다는 판단입니다.
-  const [showOverrides, setShowOverrides] = useState(true)
+  // 기본은 접어둡니다. 대부분은 공통 제목 하나로 끝나고,
+  // 따로 손볼 때만 펼치면 화면이 짧아집니다.
+  const [showOverrides, setShowOverrides] = useState(false)
 
   const preview = useMemo(
     () =>
@@ -78,9 +78,9 @@ export function TitleField(): React.JSX.Element {
   })
 
   return (
-    <section className="rounded-2xl border border-ink-600 bg-ink-800 p-4">
+    <div className="wb-row">
       <header className="mb-2.5 flex items-center justify-between">
-        <h2 className="text-[13px] font-semibold">방송 제목</h2>
+        <h2 className="section-bar text-[13px] font-semibold">방송 제목</h2>
         <div className="flex items-center gap-3 text-[11px]">
           <button
             type="button"
@@ -154,10 +154,6 @@ export function TitleField(): React.JSX.Element {
               <span className="text-[11px] text-fg-muted">{v.label}</span>
             </button>
           ))}
-          <p className="col-span-2 mt-1 text-[11px] text-fg-faint">
-            지금 <span className="font-semibold text-fg">{counter}</span>일차 — 적용할 때마다 1씩
-            올라갑니다.
-          </p>
         </div>
       )}
 
@@ -165,9 +161,6 @@ export function TitleField(): React.JSX.Element {
       {showOverrides && (
         <div className="fade-up mt-3 space-y-2 rounded-xl border border-ink-600 bg-ink-900/60 p-3">
           <div className="flex items-center justify-between">
-            <p className="text-[11px] text-fg-faint">
-              적용하면 이 제목이 됩니다. 고치면 그 플랫폼만 따로 바뀝니다.
-            </p>
             <button
               type="button"
               disabled={loadingCurrent}
@@ -220,6 +213,6 @@ export function TitleField(): React.JSX.Element {
           ))}
         </div>
       )}
-    </section>
+    </div>
   )
 }

@@ -25,6 +25,7 @@ export function ChatPanel(): React.JSX.Element {
   const toggle = useChatStore((s) => s.toggle)
   const send = useChatStore((s) => s.send)
   const setSendTo = useChatStore((s) => s.setSendTo)
+  const toggleSendTo = useChatStore((s) => s.toggleSendTo)
   const setFollow = useChatStore((s) => s.setFollow)
 
   const [text, setText] = useState('')
@@ -53,6 +54,10 @@ export function ChatPanel(): React.JSX.Element {
   /** 채팅을 켤 수 있는 플랫폼 — 로그인돼 있고 수신을 지원하는 곳 */
   const usable = PLATFORM_ORDER.filter((id) => CHAT_CAPABILITIES[id].read && accounts[id])
 
+  /** 실제로 보낼 수 있는 곳 — 채팅을 켜뒀고 전송을 지원하는 플랫폼 */
+  const writable = usable.filter((id) => enabled[id] && CHAT_CAPABILITIES[id].write)
+  const allSelected = writable.length > 0 && writable.every((id) => sendTo.includes(id))
+
   // 새 메시지가 오면 아래로 따라갑니다. 위로 올려 읽는 중이면 건드리지 않습니다.
   useEffect(() => {
     if (!follow) return
@@ -74,7 +79,13 @@ export function ChatPanel(): React.JSX.Element {
 
     const res = await send(t)
     if (res.ok) setText('')
-    else setSendError(res.error ?? '보내지 못했습니다.')
+
+    /*
+     * 여러 곳에 보낼 때는 일부만 실패할 수 있습니다.
+     * 그때도 ok 는 true 라(하나라도 갔으니 입력칸은 비웁니다) ok 만 보고 판단하면
+     * 실패한 곳이 조용히 묻혀 "한 곳만 보내졌다" 로 보입니다. 사유는 항상 띄웁니다.
+     */
+    setSendError(res.error ?? (res.ok ? null : '보내지 못했습니다.'))
   }
 
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>): void => {
@@ -176,8 +187,11 @@ export function ChatPanel(): React.JSX.Element {
           <div className="space-y-0.5">
             {messages.map((m) => (
               <div key={m.id} className="flex items-start gap-1.5 text-[12px] leading-relaxed">
-                <span className="mt-[3px] shrink-0">
-                  <PlatformIcon id={m.platform} size={13} />
+                {/* 여러 곳에 동시에 보낸 내 메시지는 줄 하나에 아이콘만 여러 개 답니다. */}
+                <span className="mt-[3px] flex shrink-0 items-center gap-0.5">
+                  {(m.platforms ?? [m.platform]).map((p) => (
+                    <PlatformIcon key={p} id={p} size={13} />
+                  ))}
                 </span>
                 <span className="shrink-0 font-medium text-fg">{m.nickname}</span>
                 <span className="shrink-0 text-fg-faint">:</span>
@@ -200,25 +214,40 @@ export function ChatPanel(): React.JSX.Element {
           </button>
         )}
 
-        <div className="mb-1.5 flex flex-wrap gap-1">
-          {usable
-            .filter((id) => enabled[id] && CHAT_CAPABILITIES[id].write)
-            .map((id) => (
-              <button
-                key={id}
-                type="button"
-                className={[
-                  'flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10.5px] transition-colors',
-                  sendTo === id
-                    ? 'bg-accent/20 text-accent-soft'
-                    : 'text-fg-faint hover:bg-ink-700 hover:text-fg'
-                ].join(' ')}
-                onClick={() => setSendTo(sendTo === id ? null : id)}
-              >
-                <PlatformIcon id={id} size={12} />
-                {PLATFORMS[id].name}
-              </button>
-            ))}
+        <div className="mb-1.5 flex flex-wrap items-center gap-1">
+          {/* 연동된 곳 전부에 한 번에 보냅니다. 다시 누르면 전부 해제됩니다. */}
+          {writable.length > 0 && (
+            <button
+              type="button"
+              className={[
+                'rounded-md px-1.5 py-0.5 text-[10.5px] font-medium transition-colors',
+                allSelected
+                  ? 'bg-accent/25 text-accent-soft'
+                  : 'text-fg-faint hover:bg-ink-700 hover:text-fg'
+              ].join(' ')}
+              onClick={() => setSendTo(allSelected ? [] : writable)}
+              title="연동된 모든 플랫폼에 보내기"
+            >
+              전부
+            </button>
+          )}
+
+          {writable.map((id) => (
+            <button
+              key={id}
+              type="button"
+              className={[
+                'flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10.5px] transition-colors',
+                sendTo.includes(id)
+                  ? 'bg-accent/20 text-accent-soft'
+                  : 'text-fg-faint hover:bg-ink-700 hover:text-fg'
+              ].join(' ')}
+              onClick={() => toggleSendTo(id)}
+            >
+              <PlatformIcon id={id} size={12} />
+              {PLATFORMS[id].name}
+            </button>
+          ))}
         </div>
 
         <div className="flex gap-1.5">
@@ -227,13 +256,19 @@ export function ChatPanel(): React.JSX.Element {
             onChange={(e) => setText(e.target.value)}
             onKeyDown={onKeyDown}
             maxLength={100}
-            placeholder={sendTo ? `${PLATFORMS[sendTo].name} 에 보내기` : '보낼 플랫폼을 고르세요'}
-            disabled={!sendTo}
+            placeholder={
+              sendTo.length === 0
+                ? '보낼 플랫폼을 고르세요'
+                : sendTo.length === 1
+                  ? `${PLATFORMS[sendTo[0]].name} 에 보내기`
+                  : `${sendTo.length}곳에 보내기`
+            }
+            disabled={sendTo.length === 0}
             className="min-w-0 flex-1 rounded-lg border border-ink-600 bg-ink-900 px-2.5 py-1.5 text-[12px] outline-none placeholder:text-fg-faint/60 focus:border-accent/60 disabled:opacity-50"
           />
           <button
             type="button"
-            disabled={!sendTo || !text.trim()}
+            disabled={sendTo.length === 0 || !text.trim()}
             className="shrink-0 rounded-lg bg-accent px-3 py-1.5 text-[12px] font-medium text-white transition-opacity disabled:opacity-30"
             onClick={() => void submit()}
           >

@@ -90,6 +90,44 @@ export function connectChat(platform: PlatformId): { ok: boolean; error?: string
   }
 }
 
+/**
+ * 연동이 끝난 뒤 채팅을 다시 붙여봅니다.
+ *
+ * 앱을 켜면 저장해 둔 on/off 를 따라 채팅부터 연결하는데, 그 시점에는 아직
+ * 로그인 전일 수 있습니다. 그러면 "로그인되어 있지 않습니다" 로 실패하고,
+ * 그 뒤에 로그인을 마쳐도 다시 시도하는 곳이 없었습니다. 그래서 화면에는
+ * 연동 완료로 뜨는데 채팅만 안 붙은 상태로 남았고, 사용자가 채팅 버튼을
+ * 껐다 켜야 풀렸습니다.
+ *
+ * 실패한 채로 남아 있던 것만 다시 붙입니다. 사용자가 일부러 꺼둔 채팅을
+ * 로그인했다는 이유로 켜면 안 되기 때문입니다 — 끈 것은 'idle' 로 남고
+ * 'error' 로는 남지 않으므로 이 조건으로 구분됩니다.
+ */
+export function retryChatAfterLogin(platform: PlatformId): void {
+  if (statuses.get(platform)?.status !== 'error' || clients.has(platform)) return
+  connectChat(platform)
+}
+
+/**
+ * 연동이 해제되면 채팅도 끊습니다.
+ *
+ * 토큰만 지우고 채팅을 살려두면, 죽은 토큰으로 계속 서버를 두드립니다.
+ * 유튜브는 그게 할당량까지 갉아먹습니다.
+ *
+ * 상태는 'idle' 이 아니라 'error' 로 남깁니다. 'idle' 은 "사용자가 껐다" 는
+ * 뜻이라, 나중에 다시 로그인해도 자동으로 붙이면 안 되는 상태입니다.
+ * 여기는 반대로 다시 붙여야 하는 경우라 구분이 필요합니다.
+ */
+export function dropChatOnLogout(platform: PlatformId): void {
+  const last = statuses.get(platform)
+  const wasOn = clients.has(platform) || (last !== undefined && last.status !== 'idle')
+  if (!wasOn) return
+
+  clients.get(platform)?.close()
+  clients.delete(platform)
+  emitStatus(platform, 'error', '연동이 해제되었습니다. 다시 로그인하면 채팅도 함께 붙습니다.')
+}
+
 export function disconnectChat(platform: PlatformId): void {
   clients.get(platform)?.close()
   clients.delete(platform)

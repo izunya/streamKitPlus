@@ -1,6 +1,6 @@
 {
   "name": "streamkit-plus",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "동시송출 방송인을 위한 통합 방송정보 관리 도구",
   "author": "izuna",
   "license": "MIT",

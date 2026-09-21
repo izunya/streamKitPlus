@@ -11,8 +11,10 @@ import { getServerAdapter } from './platforms'
 import {
   connectChat,
   disconnectChat,
+  dropChatOnLogout,
   getChatStatuses,
   loginChat,
+  retryChatAfterLogin,
   sendChat,
   setChatTarget
 } from './chat'
@@ -118,10 +120,16 @@ export function registerIpc(): void {
             : await adapter.connectToken((token ?? '').trim())
 
         setAccount(id, { ...account, connectedAt: Date.now() })
+
+        // 로그인 전에 실패해 둔 채팅이 있으면 지금 다시 붙입니다.
+        // 이게 없으면 연동은 끝났는데 채팅만 "로그인되어 있지 않습니다" 로 남습니다.
+        retryChatAfterLogin(id)
+
         return { ok: true, ...account }
       } catch (err) {
         // 실패하면 절반만 저장된 상태가 남지 않도록 정리합니다.
         clearConnection(id)
+        dropChatOnLogout(id)
         return { ok: false, error: toMessage(err) }
       } finally {
         if (inflight.get(id) === controller) inflight.delete(id)
@@ -140,6 +148,8 @@ export function registerIpc(): void {
 
   ipcMain.handle('platform:disconnect', (_e, id: PlatformId) => {
     clearConnection(id)
+    // 토큰이 사라졌으니 채팅도 붙어 있을 수 없습니다.
+    dropChatOnLogout(id)
     return { ok: true }
   })
 

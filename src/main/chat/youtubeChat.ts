@@ -20,12 +20,39 @@ import type { ChatClient, ChatClientOptions } from './twitchChat'
  */
 
 const API = 'https://www.googleapis.com/youtube/v3'
+
+/*
+ * 채팅 메시지 경로는 /liveChat/messages 입니다.
+ *
+ * 문서에 적힌 리소스 이름은 liveChatMessages 인데 실제 URL 은 그게 아닙니다.
+ * 리소스 이름을 그대로 경로에 붙이면 구글이 본문 없는 404 를 돌려주는데,
+ * API 오류가 아니라 '그런 주소 없음' 이라 원인이 잘 드러나지 않습니다.
+ * 바로 옆의 liveBroadcasts 는 이름과 경로가 같아서 더 헷갈립니다.
+ */
+const CHAT_PATH = '/liveChat/messages'
 const TOKEN_URL = 'https://oauth2.googleapis.com/token'
 
 /** 서버가 더 짧은 값을 줘도 이보다 자주 부르지 않습니다. */
 const MIN_INTERVAL_MS = 5000
 /** 응답에 값이 없을 때 쓸 기본 간격 */
 const DEFAULT_INTERVAL_MS = 10_000
+
+/**
+ * 방송을 기다리는 간격. 오래 기다릴수록 뜸하게 봅니다.
+ *
+ * 채팅을 켜두고 방송을 나중에 시작하는 순서가 흔하고, 방송을 껐다 다시 켜는
+ * 일도 흔합니다. 그래서 붙을 때까지 계속 찾습니다 — 시간 제한은 두지 않습니다.
+ *
+ * 대신 간격을 늘려 할당량을 아낍니다. 조회 한 번이 1~2 유닛이라, 처음 1분은
+ * 촘촘히 보다가 2분 간격으로 벌어지면 시간당 60 유닛 안팎으로 내려갑니다.
+ * 방금 방송을 켠 사람은 15초 안에 붙고, 몇 시간째 안 켠 사람은 싸게 기다립니다.
+ */
+function waitInterval(attempts: number): number {
+  if (attempts <= 4) return 15_000
+  if (attempts <= 10) return 30_000
+  if (attempts <= 20) return 60_000
+  return 120_000
+}
 
 interface ListResponse<T> {
   items?: T[]
@@ -79,10 +106,22 @@ export function createYouTubeChat(opts: ChatClientOptions): ChatClient {
   let closed = false
   let timer: NodeJS.Timeout | null = null
   let liveChatId: string | null = null
+  /** 그 채팅방 ID 를 어느 상태의 방송에서 가져왔는지 (404 처리에 씁니다) */
+  let chatFrom = ''
   let pageToken: string | undefined
   /** 첫 응답은 과거 기록이므로 버립니다. */
   let primed = false
   let failures = 0
+  /** 방송을 못 찾고 되돌아간 횟수 — 기다리는 간격을 정하는 데 씁니다. */
+  let waitAttempts = 0
+  /**
+   * 예약된 방송은 건너뜁니다.
+   *
+   * 아직 시작하지 않은 방송에도 채팅방 ID 는 붙어 있는데, 그 방은 열려 있지
+   * 않아서 조회하면 404 가 돌아옵니다. 한 번 겪고 나면 다음부터는 진행 중인
+   * 방송만 찾습니다 — 안 그러면 같은 ID 를 계속 집어서 404 만 반복합니다.
+   */
+  let skipUpcoming = false
 
   const freshToken = async (): Promise<string> => {
     const t = getToken('youtube')
@@ -121,13 +160,15 @@ export function createYouTubeChat(opts: ChatClientOptions): ChatClient {
   }
 
   /** 진행 중인 방송의 채팅방 ID 를 찾습니다. 없으면 채팅을 켤 수 없습니다. */
-  const findLiveChatId = async (): Promise<string | null> => {
-    for (const status of ['active', 'upcoming'] as const) {
+  const findLiveChatId = async (): Promise<{ id: string; from: string } | null> => {
+    const targets = skipUpcoming ? (['active'] as const) : (['active', 'upcoming'] as const)
+
+    for (const status of targets) {
       const res = await authed<ListResponse<BroadcastItem>>('/liveBroadcasts', {
         query: { part: 'snippet', broadcastStatus: status, broadcastType: 'all', maxResults: 1 }
       })
       const id = res.items?.[0]?.snippet?.liveChatId
-      if (id) return id
+      if (id) return { id, from: status }
     }
     return null
   }
@@ -137,24 +178,54 @@ export function createYouTubeChat(opts: ChatClientOptions): ChatClient {
     timer = setTimeout(() => void poll(), Math.max(MIN_INTERVAL_MS, ms))
   }
 
+  /**
+   * 채팅방을 놓아주고 다음 방송을 기다립니다.
+   *
+   * 붙어 있던 방송이 끝났을 때 쓰는 길입니다. 그 방송의 채팅방은 다시 열리지
+   * 않으므로 급히 다시 찾을 이유가 없습니다. 그렇다고 아주 끄면, 방송인이
+   * 방송을 다시 켰을 때 채팅이 안 붙습니다. 그래서 끄지 않고 처음 상태로
+   * 되돌려 놓고, 새 방송이 뜰 때까지 뜸하게 살핍니다.
+   *
+   * waitAttempts 를 그대로 두는 게 중요합니다. 0 으로 되돌리면 방송이 끝날
+   * 때마다 다시 15초 간격으로 촘촘히 돌아가서 할당량을 먹습니다.
+   */
+  const waitForNextBroadcast = (message: string): void => {
+    liveChatId = null
+    chatFrom = ''
+    pageToken = undefined
+    primed = false
+    failures = 0
+    waitAttempts += 1
+
+    opts.onStatus('connecting', message)
+    schedule(waitInterval(waitAttempts))
+  }
+
   const poll = async (): Promise<void> => {
     if (closed) return
 
     try {
       if (!liveChatId) {
-        liveChatId = await findLiveChatId()
-        if (!liveChatId) {
-          opts.onStatus(
-            'error',
-            '진행 중인 방송이 없습니다. 방송을 시작한 뒤 다시 켜주세요.'
-          )
-          closed = true
+        const found = await findLiveChatId()
+
+        if (!found) {
+          waitAttempts += 1
+          opts.onStatus('connecting', '방송을 기다리는 중입니다. 시작하면 자동으로 붙습니다.')
+          schedule(waitInterval(waitAttempts))
           return
         }
+
+        liveChatId = found.id
+        chatFrom = found.from
+        waitAttempts = 0
+        failures = 0
+        // 다른 방송일 수 있으니 이어받던 자리를 버리고 처음부터 시작합니다.
+        pageToken = undefined
+        primed = false
         opts.onStatus('connected')
       }
 
-      const res = await authed<ChatListResponse>('/liveChatMessages', {
+      const res = await authed<ChatListResponse>(CHAT_PATH, {
         query: {
           liveChatId,
           part: 'snippet,authorDetails',
@@ -191,6 +262,21 @@ export function createYouTubeChat(opts: ChatClientOptions): ChatClient {
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       const reason = googleReason(e)
+
+      /*
+       * 404 = 그 채팅방이 없습니다.
+       *
+       * 예약만 해둔 방송의 채팅방은 아직 열리지 않았는데도 ID 는 붙어 있어서
+       * 여기로 들어옵니다. 같은 ID 를 계속 두드려봐야 결과가 달라지지 않으니
+       * 놓아주고 다음 방송을 기다립니다.
+       */
+      if (e instanceof ApiError && e.status === 404) {
+        // 예약 방송에서 가져온 ID 였다면, 다음부터는 진행 중인 방송만 봅니다.
+        if (chatFrom === 'upcoming') skipUpcoming = true
+        waitForNextBroadcast('채팅방을 다시 찾는 중입니다.')
+        return
+      }
+
       failures += 1
 
       /*
@@ -206,13 +292,31 @@ export function createYouTubeChat(opts: ChatClientOptions): ChatClient {
         return
       }
 
+      /*
+       * 방송이 끝났습니다.
+       *
+       * 그 채팅방은 다시 열리지 않으니 같은 ID 로 매달릴 이유가 없습니다.
+       * 그렇다고 여기서 끝내면 방송을 다시 켰을 때 채팅이 안 붙어서,
+       * 사용자가 채팅 버튼을 껐다 켜야 합니다. 그래서 기다리는 상태로 돌립니다.
+       */
       if (reason === 'liveChatEnded') {
-        opts.onStatus('error', '방송이 끝나 채팅이 닫혔습니다.')
-        closed = true
+        waitForNextBroadcast('방송이 끝났습니다. 다시 켜면 자동으로 붙습니다.')
         return
       }
 
-      if (reason === 'liveChatDisabled' || reason === 'forbidden') {
+      /*
+       * 이 방송은 채팅이 꺼져 있습니다 (아동용으로 표시하면 유튜브가 끕니다).
+       * 다음 방송은 켜져 있을 수 있으니 이것도 기다리는 상태로 돌립니다.
+       */
+      if (reason === 'liveChatDisabled') {
+        waitForNextBroadcast(
+          '이 방송은 채팅이 꺼져 있습니다. 아동용으로 표시하면 유튜브가 채팅을 끕니다.'
+        )
+        return
+      }
+
+      // 권한 문제는 기다려도 달라지지 않습니다. 여기서 멈추고 사유를 보여줍니다.
+      if (reason === 'forbidden') {
         opts.onStatus('error', `채팅을 읽을 수 없습니다. ${msg}`)
         closed = true
         return
@@ -238,7 +342,7 @@ export function createYouTubeChat(opts: ChatClientOptions): ChatClient {
       const safe = text.trim()
       if (!safe) return
 
-      await authed('/liveChatMessages', {
+      await authed(CHAT_PATH, {
         method: 'POST',
         query: { part: 'snippet' },
         body: {

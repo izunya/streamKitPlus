@@ -2,7 +2,7 @@
 
 **Service** StreamKit+
 **Developer** izunyadev
-**Effective date** September 20, 2026
+**Effective date** September 23, 2026
 
 StreamKit+ is a Windows program for managing broadcast information and chat across several streaming platforms from one place. This policy explains what information the program handles and where it is kept.
 
@@ -26,6 +26,20 @@ The following is stored only on your PC, and the developer cannot see it.
 
 These are stored in the `%APPDATA%\streamkit-plus` folder.
 
+## How the data is protected
+
+This section describes the mechanisms used to protect sensitive information. Sensitive information here means the platform login tokens, and the broadcast information and live chat read from connected platforms, including Google user data.
+
+**In transit** All communication with platform APIs is encrypted with HTTPS (TLS). No unencrypted connection is used. Signing in happens on each platform's own site, so the program never receives or sees your ID and password. The temporary server that receives the sign-in result listens on `127.0.0.1` only and cannot be reached from any outside network.
+
+**At rest** Authentication tokens and the OBS password are encrypted with the Windows Data Protection API (DPAPI) and kept in a single file, `%APPDATA%\streamkit-plus\vault.bin`. The encryption key is tied to that Windows user account on that machine, so copying the file to another PC or another account leaves it unreadable. Tokens are never written anywhere in plain text.
+
+**Inside the program** Tokens stay in the part of the program that talks to the platforms. They are never passed to the part that draws the screen, which only learns whether a platform is connected and the account display name. Error messages shown on screen never carry a token.
+
+**Retention** Broadcast information and chat stay in memory only while they are displayed and disappear when the program closes. They are never written to a file. Tokens are kept only until you disconnect the platform or remove the program.
+
+**Access** There is no server operated by the developer, so the developer cannot reach this information. It is not provided or sold to any third party, and no human reads it.
+
 ## Where information goes
 
 **Connected streaming platforms** Requests are sent only to platforms you connected yourself. This happens when changing a broadcast title, category, or tags, when reading current broadcast information and chat, and when sending chat. YouTube, Twitch, CHZZK, and CIME are covered here.
@@ -46,7 +60,7 @@ The app requests one scope, `https://www.googleapis.com/auth/youtube`. It is use
 - Changing broadcast information, applying the title, category, and tags the user entered.
 - Reading and sending live chat, so messages appear in the combined chat view and what the user types is delivered.
 
-Broadcast information and chat messages retrieved this way stay in memory while they are displayed and are never written to a file. The only thing stored is the authentication token, kept on the user's PC behind Windows encryption as described above.
+Broadcast information and chat messages retrieved this way stay in memory while they are displayed and are never written to a file. The only thing stored is the authentication token, kept on the user's PC behind Windows encryption as described in "How the data is protected". All traffic is protected with HTTPS (TLS).
 
 Google user data is not handed to any other person or service. It is not sent to a developer server, it is not used for advertising or analytics, and no human reads it.
 

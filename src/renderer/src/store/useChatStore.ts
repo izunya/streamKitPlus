@@ -112,17 +112,38 @@ export const useChatStore = create<ChatState>()(
         if (sent.length > 0) {
           const accounts = useAppStore.getState().accounts
           const nickname = sent.map((id) => accounts[id]?.displayName).find(Boolean) ?? '나'
+          const at = Date.now()
 
           set((s) => {
+            /*
+             * 플랫폼이 되돌려준 내 메시지가 먼저 들어와 있으면 걷어냅니다.
+             *
+             * 위에서 모든 플랫폼의 응답을 기다린 뒤에야 이 줄을 올리는데,
+             * 치지직처럼 되돌려주는 곳은 그 사이에 이미 메시지를 보내옵니다.
+             * 받는 쪽(subscribeChat)에도 같은 검사가 있지만 그 시점에는 아직
+             * 내 줄이 없어서 그냥 통과합니다. 그래서 여기서 한 번 더 봅니다.
+             *
+             * 조건은 받는 쪽과 같게 뒀습니다 — 한쪽만 고치면 또 어긋납니다.
+             */
+            const kept = s.messages.filter(
+              (prev) =>
+                !(
+                  !prev.mine &&
+                  prev.text === text &&
+                  at - prev.at < 15_000 &&
+                  sent.includes(prev.platform)
+                )
+            )
+
             const next = [
-              ...s.messages,
+              ...kept,
               {
-                id: `me-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                id: `me-${at}-${Math.random().toString(36).slice(2, 7)}`,
                 platform: sent[0],
                 platforms: sent,
                 nickname,
                 text,
-                at: Date.now(),
+                at,
                 mine: true
               }
             ]

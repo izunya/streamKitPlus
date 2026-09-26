@@ -209,6 +209,12 @@ function detectGameTitle(
 
     const top = matchCategory(query, list)[0]
     if (!top || (top.confidence !== 'exact' && top.confidence !== 'high')) continue
+    /*
+     * isGame 이 아예 없으면 그 플랫폼은 게임 여부를 모른다는 뜻입니다.
+     * CIME 처럼 분류 체계가 없는 곳이 그렇습니다. 모르는 것을 "아니다" 로
+     * 읽으면 발로란트를 게임이 아니라고 단정하게 되므로, 다음 플랫폼에 넘깁니다.
+     */
+    if (top.category.isGame === undefined) continue
     if (!top.category.isGame) return null // 게임이 아님이 확실해짐 (토크/음악 등)
 
     // PLATFORM_ORDER 상 트위치가 가장 먼저 검사되므로 보통 공식 영문 타이틀이 잡힙니다.

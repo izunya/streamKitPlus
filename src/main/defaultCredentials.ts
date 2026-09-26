@@ -70,6 +70,13 @@ const FROM_ENV: Partial<Record<PlatformId, DefaultEntry>> = {
   cime: {
     clientId: process.env.SKP_CIME_CLIENT_ID ?? '',
     clientSecret: process.env.SKP_CIME_CLIENT_SECRET ?? ''
+  },
+
+  // 환경변수 이름만 SOOPLIVE 입니다 — 개발자 콘솔 도메인을 따라 그렇게 발급받았고,
+  // 이름을 바꾸면 이미 채워둔 .env 가 조용히 무시되므로 그대로 둡니다.
+  soop: {
+    clientId: process.env.SKP_SOOPLIVE_CLIENT_ID ?? '',
+    clientSecret: process.env.SKP_SOOPLIVE_CLIENT_SECRET ?? ''
   }
 }
 
@@ -83,9 +90,8 @@ const BUILT_IN: Partial<Record<PlatformId, DefaultEntry>> = {
   youtube: { clientId: '' },
   twitch: { clientId: '' },
   chzzk: { clientId: '', clientSecret: '' },
-  cime: { clientId: '', clientSecret: '' }
-
-  // SOOP 은 어댑터가 아직 없습니다.
+  cime: { clientId: '', clientSecret: '' },
+  soop: { clientId: '', clientSecret: '' }
 }
 
 export function getDefaultCredentials(id: PlatformId): AppCredentials | undefined {

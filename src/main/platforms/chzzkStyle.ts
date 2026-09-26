@@ -25,6 +25,17 @@ export interface ChzzkStyleConfig {
   authorizeUrl: string
   /** 카테고리 검색 쿼리 파라미터 이름 — 치지직은 query, CIME 은 keyword */
   categoryQueryParam: 'query' | 'keyword'
+  /**
+   * categoryType 이 진짜 분류 체계인지.
+   *
+   * 치지직은 GAME / SPORTS / ETC 로 묶어주고, 수정 요청에도 함께 보내야 합니다.
+   * CIME 은 같은 이름의 필드를 주지만 값이 categoryId 와 글자까지 똑같습니다
+   * (retrogame, asmr, valorant …). 실제 응답 50건을 받아 전부 같은 것을 확인했습니다.
+   *
+   * 그래서 CIME 에서는 이 값으로 게임 여부를 판단할 수 없고, 수정 요청에 넣어도
+   * 의미가 없습니다. CIME 문서의 요청 바디에도 categoryType 은 없습니다.
+   */
+  hasCategoryTaxonomy: boolean
 }
 
 interface TokenResponse {
@@ -242,14 +253,25 @@ export function createChzzkStyleAdapter(cfg: ChzzkStyleConfig): ServerAdapter {
         { query: { [cfg.categoryQueryParam]: query, size: 20 } }
       )
       const list = Array.isArray(data) ? data : (data?.data ?? [])
-      return list.map(
-        (c): PlatformCategory => ({
+      return list.map((c): PlatformCategory => {
+        if (!cfg.hasCategoryTaxonomy) {
+          /*
+           * 분류 체계가 없는 플랫폼입니다.
+           *
+           * isGame 을 false 로 두면 "게임이 아님을 확인했다" 는 뜻이 되어,
+           * 발로란트 같은 항목까지 게임이 아닌 것으로 단정하게 됩니다.
+           * 모른다는 뜻으로 비워 둡니다.
+           */
+          return { id: c.categoryId, name: c.categoryValue }
+        }
+
+        return {
           id: c.categoryId,
           name: c.categoryValue,
           categoryType: c.categoryType,
           isGame: c.categoryType === 'GAME'
-        })
-      )
+        }
+      })
     },
 
     async updateBroadcast(patch): Promise<UpdateResult> {
@@ -271,7 +293,11 @@ export function createChzzkStyleAdapter(cfg: ChzzkStyleConfig): ServerAdapter {
         fields.title = { outcome: 'applied', value: patch.title }
       }
 
-      if (patch.categoryId) {
+      if (patch.categoryId && !cfg.hasCategoryTaxonomy) {
+        // 분류 체계가 없는 플랫폼은 categoryId 만 받습니다.
+        body.categoryId = patch.categoryId
+        fields.category = { outcome: 'applied', value: patch.categoryName }
+      } else if (patch.categoryId) {
         body.categoryId = patch.categoryId
         // categoryType 이 없으면 플랫폼이 카테고리를 반영하지 않습니다.
         if (patch.categoryType) {

@@ -63,6 +63,10 @@ export function ResultPanel(): React.JSX.Element | null {
 function ResultRow({ result }: { result: UpdateResult }): React.JSX.Element {
   const meta = PLATFORMS[result.platform]
 
+  const notes = [result.fields.title, result.fields.category, result.fields.tags]
+    .map((f) => f?.message)
+    .filter((m): m is string => Boolean(m))
+
   return (
     <div
       className={[
@@ -90,6 +94,21 @@ function ResultRow({ result }: { result: UpdateResult }): React.JSX.Element {
           {result.durationMs}ms
         </span>
       </div>
+
+      {/*
+        사유를 접어두지 않고 그대로 보여줍니다.
+        "일부만 적용" 이라고만 뜨고 왜인지 안 적히면, 사용자는 무엇을 더 해야
+        하는지 알 수 없습니다. 실제로 유튜브 게임 제목이 그 상태였습니다.
+      */}
+      {notes.length > 0 && (
+        <ul className="mt-1.5 space-y-0.5 pl-[26px]">
+          {notes.map((n) => (
+            <li key={n} className="text-[11px] leading-relaxed text-warn/90">
+              {n}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }

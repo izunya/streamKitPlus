@@ -2,7 +2,8 @@ import { WebSocket } from 'ws'
 import type { ChatMessage } from '../../shared/chat'
 import { getAccount, getCredentials, getToken, setAccount, setToken } from '../vault'
 import { ApiError, apiFetch } from '../net'
-import { authCodeFlow, deviceCodeFlow } from '../platforms/twitch'
+import { authCodeFlow, deviceCodeFlow, refreshTwitchToken } from '../platforms/twitch'
+import type { CredentialSlot } from '../../shared/redirectUri'
 import type { DeviceCodeInfo } from '../platforms/base'
 
 /**
@@ -93,8 +94,8 @@ export function createTwitchChat(opts: ChatClientOptions): ChatClient {
    * 그래서 방송 로그인에서 받은 토큰을 그대로 씁니다 — 채팅용 앱이 따로 없어도 됩니다.
    * 채팅 전용 앱을 등록해 둔 경우에는 그쪽 토큰을 우선합니다.
    */
-  const token = getToken('twitch', 'chat') ?? getToken('twitch')
-  if (!token?.accessToken) {
+  const slot: CredentialSlot = getToken('twitch', 'chat') ? 'chat' : 'broadcast'
+  if (!getToken('twitch', slot)?.accessToken) {
     throw new ApiError('Twitch 에 로그인되어 있지 않습니다.', 401)
   }
 
@@ -110,17 +111,53 @@ export function createTwitchChat(opts: ChatClientOptions): ChatClient {
   let retry = 0
   let retryTimer: NodeJS.Timeout | null = null
   let seq = 0
+  /** 토큰을 갱신하고 다시 붙어본 적이 있는지 (무한 반복 방지) */
+  let authRetried = false
+  /** 우리가 일부러 끊는 중인지 — close 핸들러가 재연결을 또 걸지 않도록 */
+  let reconnecting = false
 
-  const connect = (): void => {
+  /**
+   * 붙기 직전에 토큰을 확인합니다.
+   *
+   * 트위치 액세스 토큰은 네 시간쯤이면 만료됩니다. 예전에는 채팅을 켤 때 한 번
+   * 읽은 토큰을 계속 들고 있어서, 만료된 뒤에는 재접속을 해도 같은 죽은 토큰을
+   * 보내 "Login authentication failed" 만 반복했습니다. IRC 는 HTTP 가 아니라
+   * 401 을 받을 자리가 없으니, 붙기 전에 직접 챙겨야 합니다.
+   */
+  const freshToken = async (force = false): Promise<string> => {
+    const t = getToken('twitch', slot)
+    if (!t?.accessToken) throw new ApiError('Twitch 에 로그인되어 있지 않습니다.', 401)
+
+    const nearExpiry = t.expiresAt !== undefined && t.expiresAt - Date.now() < 60_000
+    if (!force && !nearExpiry) return t.accessToken
+
+    // 직접 붙여넣은 토큰이나 갱신 수단이 없는 토큰은 그대로 써보는 수밖에 없습니다.
+    if (t.manual || !t.refreshToken) return t.accessToken
+
+    const next = await refreshTwitchToken(t.refreshToken, slot)
+    setToken('twitch', next, slot)
+    return next.accessToken
+  }
+
+  const connect = async (): Promise<void> => {
     if (closed) return
     opts.onStatus('connecting')
+
+    let token: string
+    try {
+      token = await freshToken()
+    } catch (e) {
+      opts.onStatus('error', e instanceof Error ? e.message : String(e))
+      closed = true
+      return
+    }
 
     ws = new WebSocket(IRC_URL)
 
     ws.on('open', () => {
       // 태그를 요청해야 display-name 을 받을 수 있습니다.
       ws?.send('CAP REQ :twitch.tv/tags twitch.tv/commands')
-      ws?.send(`PASS oauth:${token.accessToken}`)
+      ws?.send(`PASS oauth:${token}`)
       ws?.send(`NICK ${login}`)
       ws?.send(`JOIN #${login}`)
     })
@@ -140,15 +177,36 @@ export function createTwitchChat(opts: ChatClientOptions): ChatClient {
         if (p.command === '001') {
           // 001 = 로그인 성공
           retry = 0
+          authRetried = false
           opts.onStatus('connected')
           continue
         }
 
         if (p.command === 'NOTICE' && p.trailing.toLowerCase().includes('login authentication')) {
-          // 토큰이 잘못됐거나 스코프가 없을 때 옵니다.
-          opts.onStatus('error', '로그인에 실패했습니다. 채팅 권한으로 다시 로그인해 주세요.')
-          closed = true
+          /*
+           * 토큰이 거부됐습니다. 대부분은 만료입니다.
+           *
+           * 한 번은 강제로 갱신하고 다시 붙어봅니다. 갱신까지 실패하면 그때는
+           * 정말 다시 연동해야 하는 상황이라 사용자에게 넘깁니다.
+           */
+          if (authRetried) {
+            opts.onStatus('error', '로그인에 실패했습니다. 채팅 권한으로 다시 로그인해 주세요.')
+            closed = true
+            ws?.close()
+            continue
+          }
+
+          authRetried = true
+          reconnecting = true
+          opts.onStatus('connecting', '토큰을 갱신하고 다시 붙습니다.')
           ws?.close()
+
+          void freshToken(true)
+            .then(() => connect())
+            .catch(() => {
+              opts.onStatus('error', '로그인에 실패했습니다. 채팅 권한으로 다시 로그인해 주세요.')
+              closed = true
+            })
           continue
         }
 
@@ -169,11 +227,18 @@ export function createTwitchChat(opts: ChatClientOptions): ChatClient {
 
     ws.on('close', () => {
       if (closed) return
+
+      // 토큰 갱신 때문에 우리가 끊은 경우입니다. 재연결은 그쪽에서 이어갑니다.
+      if (reconnecting) {
+        reconnecting = false
+        return
+      }
+
       // 끊기면 점점 간격을 늘리며 다시 붙습니다 (최대 30초).
       retry += 1
       const delay = Math.min(30_000, 1000 * 2 ** Math.min(retry, 5))
       opts.onStatus('connecting', `연결이 끊겨 ${Math.round(delay / 1000)}초 후 재시도합니다.`)
-      retryTimer = setTimeout(connect, delay)
+      retryTimer = setTimeout(() => void connect(), delay)
     })
 
     ws.on('error', (e) => {
@@ -181,7 +246,7 @@ export function createTwitchChat(opts: ChatClientOptions): ChatClient {
     })
   }
 
-  connect()
+  void connect()
 
   return {
     async send(text) {

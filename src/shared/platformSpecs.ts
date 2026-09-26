@@ -107,7 +107,13 @@ export interface CimeLiveSettingPatch {
 /** GET /open/v1/categories/search 응답의 content.data 원소 */
 export interface CimeCategory {
   categoryId: string
-  /** 게임/토크 등 분류. 문서에 예시 값이 없어 실제 응답으로 확인이 필요합니다. */
+  /**
+   * ⚠️ 값이 categoryId 와 똑같습니다 (retrogame, asmr, valorant …).
+   *
+   * 치지직의 GAME / SPORTS / ETC 같은 분류 체계가 아닙니다.
+   * 실제 응답 50건을 받아 전부 categoryId 와 같은 것을 확인했습니다.
+   * 게임 여부 판별에 쓸 수 없고, 수정 요청 바디에도 이 필드는 없습니다.
+   */
   categoryType: string
   categoryValue: string
   posterImageUrl: string | null
@@ -198,7 +204,56 @@ export interface TwitchModifyChannelBody {
 }
 
 /* ------------------------------------------------------------------ */
-/* SOOP — 미확인                                                        */
-/* 개발자 문서(developers.sooplive.co.kr)가 JS 렌더링이라 내용을         */
-/* 가져오지 못했습니다. 방송 정보 수정 API 존재 여부부터 확인이 필요합니다. */
+/* SOOP — 확인 완료 (https://developers.sooplive.co.kr/docs/api)        */
 /* ------------------------------------------------------------------ */
+
+export const SOOP_BASE_URL = 'https://openapi.sooplive.com'
+
+export const SOOP_OAUTH: OAuthSpec = {
+  authorizeUrl: `${SOOP_BASE_URL}/auth/code`,
+  tokenUrl: `${SOOP_BASE_URL}/auth/token`,
+  grantTypes: ['authorization_code', 'refresh_token'],
+  pkce: false,
+  clientSecretRequired: true,
+  // 리다이렉트 URI 는 개발자 콘솔에 등록해 둔 주소를 씁니다.
+  paramNames: { responseType: null },
+  scopes: [
+    'broad_info_update',
+    'validate_live_status',
+    'user_stationinfo',
+    'broad_rtmp',
+    'broad_rtmp_reset',
+    'broad_review_list',
+    'validate_vod_owner',
+    'broad_access_chatinfo',
+    'aqua_component_get'
+  ]
+}
+
+/** StreamKit+ 가 실제로 필요로 하는 최소 스코프 */
+export const SOOP_REQUIRED_SCOPES = [
+  'broad_info_update',
+  'validate_live_status',
+  'user_stationinfo'
+]
+
+export const SOOP_ENDPOINTS = {
+  updateSetting: { method: 'POST', path: '/broad/info/update', scope: 'broad_info_update' },
+  liveStatus: { method: 'POST', path: '/validate/live/status', scope: 'validate_live_status' },
+  stationInfo: { method: 'POST', path: '/user/stationinfo', scope: 'user_stationinfo' },
+  categoryList: { method: 'GET', path: '/broad/category/list' }
+} satisfies Record<string, EndpointSpec>
+
+/**
+ * POST /broad/info/update 요청 바디 (form-urlencoded).
+ * 토큰을 헤더가 아니라 본문에 넣습니다.
+ */
+export interface SoopBroadInfoUpdate {
+  access_token: string
+  /** 최대 75자 */
+  title?: string
+  /** 카테고리 번호 (cate_no) */
+  category?: string
+  /** 최대 5개. 특수문자 불가. ', ' 로 구분 */
+  hashtags?: string
+}

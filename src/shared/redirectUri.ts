@@ -31,13 +31,12 @@ const SPECS: Partial<Record<PlatformId, RedirectSpec>> = {
   twitch: { host: 'localhost', port: 12478, path: '/callback' },
   chzzk: { host: 'localhost', port: 12479, path: '/callback' },
   cime: { host: 'localhost', port: 12480, path: '/callback' },
+  soop: { host: 'localhost', port: 12482, path: '/callback' },
 
   // YouTube 는 콘솔에서 "데스크톱 앱" 유형으로 만들면 루프백 주소가 자동 허용되어
   // 리다이렉트 URI 를 따로 등록하지 않습니다. 그래도 포트를 고정해 두면
   // "웹 애플리케이션" 유형으로 등록한 경우에도 그대로 쓸 수 있습니다.
   youtube: { host: '127.0.0.1', port: 12477, path: '/callback' }
-
-  // soop 은 어댑터 미구현
 }
 
 /**

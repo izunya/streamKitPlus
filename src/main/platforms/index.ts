@@ -20,14 +20,17 @@ const adapters: Record<PlatformId, ServerAdapter> = {
     id: 'chzzk',
     baseUrl: 'https://openapi.chzzk.naver.com',
     authorizeUrl: CHZZK_OAUTH.authorizeUrl,
-    categoryQueryParam: 'query'
+    categoryQueryParam: 'query',
+    hasCategoryTaxonomy: true
   }),
 
   cime: createChzzkStyleAdapter({
     id: 'cime',
     baseUrl: CIME_BASE_URL,
     authorizeUrl: CIME_OAUTH.authorizeUrl,
-    categoryQueryParam: 'keyword'
+    // categoryType 이 categoryId 와 같은 값이라 분류로 쓸 수 없습니다.
+    categoryQueryParam: 'keyword',
+    hasCategoryTaxonomy: false
   }),
 
   soop: createSoopAdapter()

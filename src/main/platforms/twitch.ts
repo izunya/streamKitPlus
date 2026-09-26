@@ -2,7 +2,7 @@ import type { PlatformCategory, PlatformPatch, UpdateResult } from '../../shared
 import { apiFetch, ApiError, type RequestOptions } from '../net'
 import { startOAuthFlow } from '../oauth'
 import { getAccount, getCredentials, setAccount, setToken, type StoredToken } from '../vault'
-import { getRedirectSpec } from '../../shared/redirectUri'
+import { getRedirectSpec, type CredentialSlot } from '../../shared/redirectUri'
 import { failure, toExpiryMs, withRetryOnAuth, type DeviceCodeInfo, type ServerAdapter } from './base'
 import { shell } from 'electron'
 
@@ -201,6 +201,40 @@ export async function deviceCodeFlow(
   throw new ApiError('인증 대기 시간이 초과되었습니다. 다시 시도해 주세요.', 408)
 }
 
+/**
+ * 토큰 갱신 — 어댑터와 채팅이 함께 씁니다.
+ *
+ * 채팅은 IRC 라 401 을 돌려받을 자리가 없습니다. 만료된 토큰으로 붙으면
+ * 접속 자체가 거부됩니다. 그래서 붙기 전에 미리 갱신할 수 있도록
+ * 어댑터 안에 두지 않고 밖으로 꺼냈습니다.
+ *
+ * public client 는 secret 없이 갱신합니다.
+ */
+export async function refreshTwitchToken(
+  refreshToken: string,
+  slot: CredentialSlot = 'broadcast'
+): Promise<StoredToken> {
+  const creds = getCredentials('twitch', slot)
+  if (!creds?.clientId) {
+    throw new ApiError('Twitch Client ID 가 설정되지 않았습니다.', 400)
+  }
+
+  const res = await apiFetch<TwitchTokenResponse>(TOKEN, {
+    method: 'POST',
+    form: {
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+      client_id: creds.clientId,
+      ...(creds.clientSecret ? { client_secret: creds.clientSecret } : {})
+    }
+  })
+  return {
+    accessToken: res.access_token,
+    refreshToken: res.refresh_token ?? refreshToken,
+    expiresAt: toExpiryMs(res.expires_in)
+  }
+}
+
 export function createTwitchAdapter(): ServerAdapter {
   const id = 'twitch' as const
 
@@ -215,25 +249,8 @@ export function createTwitchAdapter(): ServerAdapter {
 
   const clientSecretOrNull = (): string | null => getCredentials(id)?.clientSecret ?? null
 
-  const refresh = async (refreshToken: string): Promise<StoredToken> => {
-    const clientId = requireClientId()
-    const secret = clientSecretOrNull()
-    const res = await apiFetch<TwitchTokenResponse>(TOKEN, {
-      method: 'POST',
-      form: {
-        grant_type: 'refresh_token',
-        refresh_token: refreshToken,
-        client_id: clientId,
-        // public client 는 secret 없이 갱신합니다.
-        ...(secret ? { client_secret: secret } : {})
-      }
-    })
-    return {
-      accessToken: res.access_token,
-      refreshToken: res.refresh_token ?? refreshToken,
-      expiresAt: toExpiryMs(res.expires_in)
-    }
-  }
+  const refresh = (refreshToken: string): Promise<StoredToken> =>
+    refreshTwitchToken(refreshToken)
 
   const authed = <T>(path: string, init: RequestOptions = {}): Promise<T> =>
     withRetryOnAuth(id, refresh, (token) => {

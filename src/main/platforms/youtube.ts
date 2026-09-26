@@ -139,6 +139,7 @@ export function createYouTubeAdapter(): ServerAdapter {
     const res = await authed<ListResponse<VideoItem>>('/videos', {
       query: { part: 'snippet', id: videoId }
     })
+
     return res.items?.[0]?.snippet ?? {}
   }
 
@@ -294,12 +295,23 @@ export function createYouTubeAdapter(): ServerAdapter {
           body: { id: broadcast.id, snippet: next }
         })
 
-        // 게임 제목은 API 로 지정할 수 없습니다. 조용히 버리지 않고 명시합니다.
+        /*
+         * 게임 제목은 API 로 지정할 수 없습니다.
+         *
+         * videos 와 liveBroadcasts 어느 쪽 snippet 에도 게임을 넣을 자리가 없습니다
+         * (categoryId 는 '게임' 이라는 대분류까지만 나타냅니다). 스튜디오 화면의
+         * 게임 선택은 공개 API 로 열려 있지 않습니다.
+         *
+         * 그래서 대분류만 들어가고 세부 게임은 비어 있게 됩니다. 조용히 버리면
+         * 사용자는 앱이 다 해준 줄 알고 넘어가므로, 무엇이 남았는지 분명히 적습니다.
+         */
         if (patch.gameTitle) {
           fields.category = {
+            ...(fields.category ?? { outcome: 'trimmed' }),
             outcome: 'trimmed',
-            value: patch.categoryName,
-            message: `게임 제목("${patch.gameTitle}")은 YouTube Data API 로 설정할 수 없어 대분류만 적용했습니다.`
+            message:
+              `게임 제목 "${patch.gameTitle}" 은 유튜브 API 로 넣을 수 없어 대분류까지만 적용했습니다. ` +
+              '유튜브 스튜디오에서 직접 골라주세요.'
           }
         }
 

@@ -528,6 +528,11 @@ function CategoryChooser({
           <span className="font-medium text-fg">{picked.name}</span> 안에 표시할 게임 이름을
           적어주세요.
         </p>
+        {caps.gameTitle?.manualNote && (
+          <p className="mb-2 rounded-lg border border-warn/40 bg-warn/10 p-2 text-[11px] leading-relaxed text-warn">
+            {caps.gameTitle.manualNote}
+          </p>
+        )}
         <div className="flex gap-1.5">
           <input
             autoFocus

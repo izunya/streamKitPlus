@@ -1,13 +1,13 @@
 {
   "name": "streamkit-plus",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "동시송출 방송인을 위한 통합 방송정보 관리 도구",
   "author": "izuna",
   "license": "MIT",
   "main": "./out/main/index.js",
   "scripts": {
-    "dev": "electron-vite dev",
-    "start": "electron-vite preview",
+    "dev": "chcp 65001>nul & electron-vite dev",
+    "start": "chcp 65001>nul & electron-vite preview",
     "build": "npm run typecheck && electron-vite build",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",

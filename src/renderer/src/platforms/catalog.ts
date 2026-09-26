@@ -17,7 +17,12 @@ export const PLATFORMS: Record<PlatformId, PlatformMeta> = {
         supported: true,
         searchable: false,
         // 대분류 '게임'을 고르면 그 아래에 게임 제목을 따로 지정합니다.
-        gameTitle: { underCategoryId: 'yt-20', maxLength: 100 },
+        gameTitle: {
+          underCategoryId: 'yt-20',
+          maxLength: 100,
+          manualNote:
+            '게임 제목은 유튜브 API로 넣을 수 없습니다. 적어두면 다른 플랫폼에 쓰이고, 유튜브는 스튜디오에서 직접 골라주세요.'
+        },
         note: '대분류 15종 고정 + 게임 선택 시 게임 제목 별도 지정'
       },
       tags: {
@@ -61,20 +66,28 @@ export const PLATFORMS: Record<PlatformId, PlatformMeta> = {
     }
   },
 
+  // 공식 문서 확인 완료: https://developers.sooplive.co.kr/docs/api/broad-stream
+  //   POST broad/info/update      access_token/title(<=75)/category/hashtags(<=5, 특수문자 불가)
+  //   POST validate/live/status   access_token -> 방송 중일 때만 제목·카테고리
+  //   GET  broad/category/list    ?client_id=&locale= -> 트리(부모 + child)
   soop: {
     id: 'soop',
     name: 'SOOP',
     color: '#00A8FF',
     authMethods: ['oauth', 'apiKey'],
     capabilities: {
-      // 개발자 문서 페이지가 JS 렌더링이라 스펙을 확인하지 못했습니다.
-      // 확인 전까지는 제한값을 지어내지 않고 비워둡니다.
-      title: { supported: true },
-      category: { supported: true, searchable: true, note: '스펙 미확인' },
-      tags: { supported: true, note: '스펙 미확인' }
+      title: { supported: true, maxLength: 75 },
+      // 검색 엔드포인트가 없어 전체 목록을 받아 앱에서 거릅니다.
+      category: { supported: true, searchable: true },
+      tags: {
+        supported: true,
+        maxCount: 5,
+        noSpaceOrSpecial: true,
+        note: '해시태그로 들어갑니다. 특수문자 불가'
+      }
     },
     caution:
-      '개발자 문서에서 스펙을 확인하지 못했습니다. 제목/카테고리/태그 수정 API 존재 여부부터 확인이 필요합니다.'
+      '방송 중이 아니면 현재 제목·카테고리를 읽어올 수 없습니다. 변경은 방송 전에도 됩니다.'
   },
 
   // 공식 문서 확인 완료: https://developers.ci.me/docs/api-lives
@@ -89,18 +102,19 @@ export const PLATFORMS: Record<PlatformId, PlatformMeta> = {
     // apiKey 는 이미 발급받은 액세스 토큰을 직접 붙여넣는 용도로 남겨둡니다.
     authMethods: ['oauth', 'apiKey'],
     capabilities: {
+      // defaultLiveTitle 은 방송 중인 라이브에도 바로 반영됩니다 (실제 호출로 확인).
+      // 이름이 default 로 시작해 "다음 방송의 기본값" 처럼 읽히지만 그렇지 않습니다.
       title: { supported: true, maxLength: 100 },
       category: {
         supported: true,
         searchable: true,
-        requiresCategoryType: true,
-        note: 'categories/search API 제공. 치지직과 동일한 응답 구조'
+        // 응답에 categoryType 이 있지만 값이 categoryId 와 같아 분류로 쓸 수 없습니다.
+        // 수정 요청 바디에도 이 필드가 없습니다.
+        note: 'categories/search API 제공. 카테고리 분류 체계는 없음'
       },
       // 개당 길이 제한은 문서에 없어 지정하지 않습니다 (미지정 = 제한 없음).
       tags: { supported: true, maxCount: 6, note: '최대 6개. 개당 길이 제한은 문서에 없음' }
-    },
-    caution:
-      'defaultLiveTitle 이 방송 중인 라이브에 즉시 반영되는지 문서에 없습니다. 실제 호출로 확인 필요.'
+    }
   }
 }
 
@@ -183,20 +197,87 @@ export const MOCK_CATEGORIES: Record<PlatformId, PlatformCategory[]> = {
  * 여기 없는 카테고리는 사용자가 한 번 직접 고르면 매핑 캐시에 남습니다.
  */
 export const ALIAS_DICTIONARY: Record<string, string[]> = {
-  // 게임
-  발로란트: ['VALORANT', '발로', 'valo'],
+  /* ── 게임 ──────────────────────────────────────────────────
+   * 각 줄에 넣은 것: 플랫폼이 실제로 쓰는 표기 + 방송인이 쓰는 줄임말.
+   * 플랫폼 표기는 치지직·CIME·SOOP 카테고리 API 를 직접 조회해 확인했고,
+   * 트위치는 공개 디렉터리 페이지의 표기를 확인했습니다.
+   *
+   * 트위치는 한국어로 현지화해 보여줍니다(발로란트, Apex 레전드 …).
+   * 다만 API 가 영어 정식 명칭을 주는 경우도 있어 양쪽을 함께 넣습니다.
+   */
   '리그 오브 레전드': ['League of Legends', 'LoL', '롤', '리그오브레전드'],
-  마인크래프트: ['Minecraft', '마크'],
-  포트나이트: ['Fortnite'],
+  발로란트: ['VALORANT', 'Valorant', '발로', 'valo'],
+  오버워치: ['Overwatch', 'Overwatch 2', '오버워치 2', '옵치'],
+  'PUBG: 배틀그라운드': ['PUBG', 'PUBG: BATTLEGROUNDS', '배틀그라운드', '배그', '펍지'],
+  마인크래프트: ['Minecraft', '마크', '마인'],
+  로스트아크: ['Lost Ark', '로아'],
+  메이플스토리: ['MapleStory', '메이플'],
+  던전앤파이터: ['Dungeon Fighter Online', 'DNF', '던파'],
+  스타크래프트: ['StarCraft', '스타크래프트: 리마스터', '브루드워', '스타1', '스타'],
+  원신: ['Genshin Impact'],
+  '이터널 리턴': ['Eternal Return', '이터널리턴'],
+  '카트라이더: 드리프트': ['KartRider: Drift', '카트라이더', '카트'],
+  서든어택: ['Sudden Attack', '서든'],
+  팰월드: ['Palworld'],
+  '엘든 링': ['Elden Ring', '엘든링', '엘링'],
+  '헬다이버즈 2': ['HELLDIVERS 2', '헬다이버즈', '헬다'],
+  '발더스 게이트 3': ["Baldur's Gate 3", '발더스 게이트', '발더스', 'BG3'],
+  '사이버펑크 2077': ['Cyberpunk 2077', '사펑'],
+  포트나이트: ['Fortnite', '포나'],
+  '에이펙스 레전드': ['Apex Legends', 'Apex 레전드', '에이펙스', '에펙'],
+  '톰 클랜시의 레인보우 식스 시즈': [
+    "Tom Clancy's Rainbow Six Siege",
+    // 세 플랫폼 모두 최신판을 "시즈 X" 로 올려두었습니다. 이게 없으면 못 찾습니다.
+    '톰 클랜시의 레인보우 식스 시즈 X',
+    '레인보우 식스 시즈 X',
+    '레인보우 식스 시즈',
+    '레인보우 식스',
+    '레식',
+    'R6'
+  ],
+  '카운터 스트라이크 2': ['Counter-Strike 2', 'CS2', '카스', '카운터 스트라이크'],
+  '데드 바이 데이라이트': ['Dead by Daylight', 'DBD', '데바데'],
+  하스스톤: ['Hearthstone', '하스'],
+  '디아블로 IV': ['Diablo IV', '디아블로 4', '디아4', '디아'],
+  '몬스터 헌터 와일즈': ['Monster Hunter Wilds', '몬스터헌터 와일즈', '몬헌 와일즈', '몬헌'],
   '비트 세이버': ['Beat Saber', '비트세이버', 'beatsaber'],
-  'GTA 5': ['Grand Theft Auto V', 'GTA5', 'GTA'],
+  VRChat: ['VRchat', 'vrchat', '브이알챗', '브챗'],
+  // SOOP 만 음차해서 '그랜드 테프트 오토 V' 로 씁니다.
+  'GTA 5': ['Grand Theft Auto V', '그랜드 테프트 오토 V', 'GTA5', 'GTA'],
+  림월드: ['RimWorld'],
+  '이스케이프 프롬 타르코프': ['Escape from Tarkov', '타르코프', 'EFT'],
+  '패스 오브 엑자일': ['Path of Exile', '패스 오브 엑자일 2', 'PoE', '포이'],
+  '스타듀 밸리': ['Stardew Valley', '스타듀밸리', '스듀'],
+  '리썰 컴퍼니': ['Lethal Company', '리썰'],
+  테라리아: ['Terraria'],
+  마비노기: ['Mabinogi', '마비'],
 
-  // 게임이 아닌 카테고리 — 플랫폼마다 이름이 가장 많이 갈리는 곳입니다
-  // 트위치는 'Just Chatting' 입니다.
-  // 'IRL' 은 트위치에 따로 존재하는 다른 카테고리라 일부러 넣지 않았습니다 —
-  // 같이 묶으면 둘 다 정확 일치가 되어 어느 쪽이 뽑힐지 알 수 없게 됩니다.
-  토크: ['talk', 'Talk', 'Just Chatting', '저스트 채팅', '토크/캠방', '수다', '잡담', '캠방'],
-  스포츠: ['Sports', 'sports'],
-  음악: ['Music', 'music', '뮤직'],
-  '먹방': ['Food & Drink', '음식', 'ASMR 먹방']
+  /* ── 게임이 아닌 카테고리 ───────────────────────────────────
+   * 이름이 가장 많이 갈리는 곳이라 별칭의 값어치가 가장 큽니다.
+   * 아래 플랫폼 표기는 전부 실제 조회로 확인한 것입니다.
+   *
+   * 'IRL' 은 트위치에 따로 존재하는 다른 카테고리라 일부러 넣지 않았습니다 —
+   * 같이 묶으면 둘 다 정확 일치가 되어 어느 쪽이 뽑힐지 알 수 없게 됩니다.
+   */
+  토크: [
+    'talk', // 치지직
+    'Just Chatting', // 트위치
+    '저스트 채팅', // CIME
+    '토크/캠방', // SOOP
+    '저챗',
+    '수다',
+    '잡담',
+    '캠방',
+    '소통'
+  ],
+  음악: ['음악/노래', 'Music', '노래', '뮤직', '노래방송'],
+  먹방: ['먹방/쿡방', 'Food & Drink', '쿡방', '음식'],
+  ASMR: ['asmr'],
+  여행: ['Travel & Outdoors', '여행/아웃도어', '아웃도어'],
+  스포츠: ['Sports', '스포츠일반'],
+  그림: ['Art', '아트', '그림방송'],
+  운동: ['운동/건강', 'Fitness & Health', '헬스', '건강'],
+  // 'Virtual' 은 뺐습니다 — 치지직에 버추얼 카테고리가 없어서
+  // '버추얼 파이터' 같은 게임만 끌어옵니다.
+  버추얼: ['버츄얼', '버튜버', 'VTuber']
 }

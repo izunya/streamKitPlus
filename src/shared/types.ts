@@ -40,6 +40,13 @@ export interface PlatformCapabilities {
       /** 게임 제목 입력칸이 나타나는 대분류 ID */
       underCategoryId: string
       maxLength?: number
+      /**
+       * 앱이 대신 넣어줄 수 없고 사용자가 플랫폼에서 직접 지정해야 하는 경우.
+       *
+       * 유튜브가 여기에 해당합니다. 고르는 칸은 보여주되, 적용되지 않는다는 것을
+       * 고르는 순간에 알려야 합니다. 적용한 뒤에 알리면 이미 늦습니다.
+       */
+      manualNote?: string
     }
     /**
      * categoryId 만으로는 부족하고 categoryType(GAME/SPORTS/ETC)을
